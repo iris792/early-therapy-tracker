@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+<title>早療追蹤本</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#3A3358;
+    --paper:#FFF6E5;
+    --paper-card:#ffffff;
+    --pine:#28B7E8;
+    --pine-dark:#2B3A8C;
+    --mustard:#FFC93C;
+    --coral:#FF6B6B;
+    --teal:#2ED9A0;
+    --grape:#A66DE0;
+    --line:#FFE3B8;
+    --radius:20px;
+    --shadow:0 4px 14px rgba(58,51,88,0.12);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Noto Sans TC','Baloo 2',sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    padding-bottom:76px;
+  }
+  .num{font-family:'JetBrains Mono',monospace;}
+  h1,h2,h3,.brand,.tab-label{font-family:'Baloo 2','Noto Sans TC',sans-serif;}
+
+  @keyframes popIn{
+    0%{opacity:0;transform:translateY(10px) scale(0.96);}
+    60%{opacity:1;transform:translateY(-2px) scale(1.01);}
+    100%{opacity:1;transform:translateY(0) scale(1);}
+  }
+  @keyframes floaty{
+    0%,100%{transform:translateY(0) rotate(0deg);}
+    50%{transform:translateY(-6px) rotate(6deg);}
+  }
+  @keyframes navBounce{
+    0%,100%{transform:translateY(0);}
+    30%{transform:translateY(-5px);}
+    50%{transform:translateY(0);}
+    65%{transform:translateY(-2px);}
+  }
+
+  /* ---------- App bar ---------- */
+  .appbar{
+    background:linear-gradient(135deg, var(--pine) 0%, var(--grape) 100%);
+    color:#fffdf8;
+    padding:18px 20px 42px;
+    position:relative;
+    overflow:hidden;
+  }
+  .appbar::after{
+    content:"";
+    position:absolute;
+    right:-30px; top:-40px;
+    width:160px;height:160px;
+    background:var(--mustard);
+    opacity:0.25;
+    border-radius:40% 60% 55% 45%/50% 40% 60% 50%;
+  }
+  .appbar::before{
+    content:"";
+    position:absolute;
+    left:-40px; bottom:-50px;
+    width:140px;height:140px;
+    background:var(--teal);
+    opacity:0.2;
+    border-radius:55% 45% 40% 60%/45% 55% 45% 55%;
+  }
+  .deco{position:absolute;font-size:20px;opacity:0.85;animation:floaty 3.2s ease-in-out infinite;z-index:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.12));}
+  .deco-star1{top:14px;right:70px;font-size:16px;animation-delay:.2s;}
+  .deco-star2{top:56px;right:24px;font-size:22px;animation-delay:.8s;}
+  .deco-cloud{top:8px;right:120px;font-size:24px;animation-delay:1.4s;opacity:0.7;}
+  .brand{font-size:22px;font-weight:700;letter-spacing:0.5px;position:relative;z-index:2;}
+  .brand small{display:block;font-family:'Noto Sans TC',sans-serif;font-weight:400;font-size:12.5px;opacity:0.85;margin-top:2px;}
+
+  /* folder-tab nav (desktop) */
+  .foldernav{
+    display:flex;
+    gap:6px;
+    margin:20px -20px -42px;
+    padding:0 20px;
+    position:relative;
+    z-index:1;
+  }
+  .foldernav button{
+    flex:1;
+    border:none;
+    cursor:pointer;
+    padding:12px 8px 14px;
+    font-family:'Baloo 2',sans-serif;
+    font-size:14px;
+    font-weight:600;
+    color:#fff;
+    background:rgba(255,255,255,0.14);
+    border-radius:12px 12px 0 0;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    transition:background .18s, transform .18s;
+    opacity:0.8;
+  }
+  .foldernav button .ic{font-size:17px;}
+  .foldernav button.active{
+    background:var(--paper-card);
+    color:var(--pine-dark);
+    opacity:1;
+    transform:translateY(2px);
+  }
+  .foldernav button.active .ic{animation:navBounce .6s ease;}
+
+  main{max-width:980px;margin:0 auto;padding:20px 16px 40px;}
+  .card{
+    background:var(--paper-card);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:18px;
+    margin-bottom:16px;
+    animation:popIn .35s ease both;
+  }
+  .section-title{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .section-title h2{margin:0;font-size:18px;color:var(--pine-dark);}
+  .btn{
+    border:none;border-radius:10px;padding:9px 16px;
+    font-family:'Baloo 2',sans-serif;font-weight:600;font-size:14px;
+    cursor:pointer;transition:transform .12s, opacity .12s;
+    min-height:44px;display:inline-flex;align-items:center;justify-content:center;
+  }
+  .btn:active{transform:scale(0.96);}
+  .btn-primary{background:var(--pine);color:#fff;}
+  .btn-mustard{background:var(--mustard);color:#3a2a0d;}
+  .btn-ghost{background:transparent;color:var(--pine-dark);border:1.5px solid var(--line);}
+  .btn-danger{background:var(--coral);color:#fff;}
+  .btn-sm{padding:8px 14px;font-size:13px;border-radius:9px;min-height:40px;}
+
+  .empty{
+    text-align:center;color:#8a8a7d;padding:30px 10px;font-size:14px;
+  }
+
+  /* ---- course list ---- */
+  .course-row{
+    display:flex;align-items:center;gap:12px;
+    padding:12px 10px;border-radius:10px;
+    border:1px solid var(--line);margin-bottom:8px;
+  }
+  .dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+  .course-main{flex:1;min-width:0;}
+  .course-main .subj{font-weight:700;font-size:15px;}
+  .course-main .meta{font-size:12.5px;color:#6c6c60;margin-top:2px;}
+  .badge{
+    display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;
+    background:var(--paper);color:var(--pine-dark);font-weight:600;margin-left:6px;
+  }
+  .badge-active{background:#e4f2ec;color:var(--teal);}
+  .badge-upcoming{background:#eef1e6;color:#7a8a3f;}
+  .badge-ended{background:#f1efe8;color:#9a9a8c;}
+  .field-row{display:flex;gap:10px;}
+  .field-row .field{flex:1;}
+  .hint{font-size:11.5px;color:#9a9a8c;margin-top:4px;}
+  .row-actions{display:flex;gap:6px;flex-shrink:0;}
+
+  /* ---- schedule ---- */
+  .schedule-intro{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:14px;padding:0 2px;}
+  .schedule-intro h2{margin:0;font-size:19px;color:var(--pine-dark);}
+  .schedule-intro .hint{margin:0;}
+  .week-card{padding:16px 14px;}
+  .schedule-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;}
+  .day-col{background:var(--paper);border-radius:12px;padding:8px 6px;min-height:90px;}
+  .day-col.today-col{background:#e8f3ee;box-shadow:inset 0 0 0 1.5px var(--teal);}
+  .day-col h3{
+    margin:2px 0 8px;text-align:center;font-size:13px;color:var(--pine-dark);
+    padding-bottom:7px;border-bottom:2px dashed var(--line);
+    display:flex;flex-direction:column;align-items:center;gap:1px;
+  }
+  .day-col h3 .wd{font-size:15px;font-weight:800;letter-spacing:0.5px;}
+  .day-col h3 .dnum{font-size:10.5px;color:#9a9a8c;font-weight:600;font-family:'JetBrains Mono',monospace;}
+  .day-col.weekend h3 .wd{color:var(--coral);}
+  .empty-slot{text-align:center;color:#b3b3a3;font-size:12px;padding-top:10px;}
+  .class-chip{
+    border-radius:13px;padding:8px 8px 9px;margin-bottom:7px;color:#fff;font-size:12px;
+    box-shadow:0 2px 6px rgba(58,51,88,0.18);
+  }
+  .class-chip .t{font-weight:700;font-size:12.5px;}
+  .class-chip .s{opacity:0.95;font-size:12px;margin-top:1px;}
+  .class-chip button{
+    margin-top:6px;width:100%;border:none;border-radius:6px;padding:4px 0;
+    background:rgba(255,255,255,0.25);color:#fff;font-size:11px;font-weight:600;cursor:pointer;
+  }
+  .class-chip button.chip-yes{background:rgba(255,255,255,0.65);color:#1f5c46;font-weight:800;}
+  .class-chip button.chip-no{background:rgba(0,0,0,0.32);color:#fff;font-weight:800;}
+
+  /* ---- attendance / learning history ---- */
+  .course-history-head{
+    display:flex;align-items:center;gap:12px;margin-bottom:4px;
+  }
+  .timeline{
+    position:relative;margin:14px 0 2px 5px;padding-left:18px;
+    border-left:2px dashed var(--line);
+  }
+  .timeline-item{position:relative;margin-bottom:14px;}
+  .timeline-item:last-child{margin-bottom:2px;}
+  .timeline-dot{
+    position:absolute;left:-24px;top:5px;width:11px;height:11px;border-radius:50%;
+    box-shadow:0 0 0 3px var(--paper-card);
+  }
+  .timeline-content{background:var(--paper);border-radius:10px;padding:11px 12px;}
+  .att-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .type-badge{margin-left:auto;background:#fff;border:1px solid var(--line);}
+  .att-date{font-weight:700;font-size:13.5px;color:var(--pine-dark);}
+  .status-pill{font-size:11.5px;padding:3px 9px;border-radius:20px;font-weight:700;}
+  .status-yes{background:#e4f2ec;color:var(--teal);}
+  .status-no{background:#fbe9e5;color:var(--coral);}
+  .att-note{font-size:13px;color:#555;margin-top:6px;white-space:pre-wrap;}
+  .att-cost{margin-left:auto;font-weight:700;color:var(--pine-dark);}
+
+  /* ---- summary ---- */
+  /* ---- learning record bookshelf ---- */
+  .book-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:12px;
+  }
+  .book-card{
+    border:none;cursor:pointer;color:#fff;border-radius:12px 12px 8px 8px;
+    padding:18px 12px 14px;text-align:left;
+    box-shadow:0 3px 8px rgba(37,52,58,0.16), inset 0 0 0 1px rgba(255,255,255,0.15);
+    display:flex;flex-direction:column;gap:2px;min-height:118px;
+    position:relative;overflow:hidden;transition:transform .12s;
+    font-family:'Noto Sans TC',sans-serif;
+  }
+  .book-card::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:7px;background:rgba(0,0,0,0.18);
+  }
+  .book-card:active{transform:scale(0.94) rotate(-1deg);}
+  .book-icon{font-size:22px;margin-bottom:4px;}
+  .book-title{font-weight:800;font-size:15px;line-height:1.3;margin-bottom:4px;}
+  .book-sub{font-size:11.5px;opacity:0.92;font-family:'JetBrains Mono',monospace;}
+  .book-unit{font-size:11.5px;opacity:0.9;font-family:'Noto Sans TC',sans-serif;}
+  .book-card-orphan{background:#9a9a8c;}
+
+  .stat-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+  .stat-card{background:var(--pine);color:#fff;border-radius:12px;padding:14px 12px;}
+  .stat-card .lbl{font-size:12px;opacity:0.8;}
+  .stat-card .val{font-size:20px;font-weight:700;margin-top:4px;}
+  .stat-card.mustard{background:var(--mustard);color:#3a2a0d;}
+  .stat-card.teal{background:var(--teal);}
+
+  table.summary{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.summary th,table.summary td{padding:9px 8px;text-align:left;border-bottom:1px solid var(--line);}
+  table.summary th{color:#6c6c60;font-weight:600;font-size:12px;}
+  table.summary tr.total td{font-weight:700;border-top:2px solid var(--pine);border-bottom:none;color:var(--pine-dark);}
+  .table-wrap{overflow-x:auto;}
+
+  .month-list{display:flex;flex-direction:column;gap:9px;}
+  .month-row{
+    display:flex;align-items:center;gap:10px;width:100%;
+    border:1px solid var(--line);border-radius:11px;padding:13px 14px;
+    background:#fff;cursor:pointer;font-family:inherit;text-align:left;
+  }
+  .month-row:active{transform:scale(0.98);}
+  .month-label{font-weight:700;font-size:14.5px;color:var(--pine-dark);flex:1;}
+  .month-count{font-size:12px;color:#8a8a7d;}
+  .month-total{font-weight:700;color:var(--pine-dark);font-size:14px;}
+  .month-arrow{color:#b3b3a3;font-size:19px;margin-left:2px;}
+
+  /* ---- modal ---- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(37,52,58,0.45);
+    display:none;align-items:flex-end;justify-content:center;z-index:100;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    background:var(--paper-card);width:100%;max-width:480px;
+    border-radius:18px 18px 0 0;padding:22px 20px 26px;
+    max-height:88vh;overflow-y:auto;
+    animation:slideup .22s ease;
+  }
+  @keyframes slideup{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .modal h3{margin:0 0 16px;color:var(--pine-dark);}
+  .field{margin-bottom:13px;}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:#4a4a40;}
+  .field input, .field select, .field textarea{
+    width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:9px;
+    font-size:16px;font-family:inherit;background:#fdfcf9;
+  }
+  .field textarea{min-height:70px;resize:vertical;}
+  .check-row{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+  .check-row input{width:auto;}
+
+  .chip-toggle-group{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip-toggle{cursor:pointer;}
+  .toggle-input{position:absolute;opacity:0;width:0;height:0;}
+  .day-toggle span{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:42px;height:42px;border-radius:10px;border:1.5px solid var(--line);
+    font-size:13.5px;font-weight:700;background:#fdfcf9;color:#4a4a40;transition:background .12s,color .12s,border-color .12s;
+  }
+  .day-toggle input:checked + span{background:var(--pine);color:#fff;border-color:var(--pine);}
+  .paytype-toggle span{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:10px 20px;border-radius:10px;border:1.5px solid var(--line);
+    font-size:14px;font-weight:700;background:#fdfcf9;color:#4a4a40;transition:background .12s,color .12s,border-color .12s;
+  }
+  .paytype-toggle input:checked + span{background:var(--mustard);color:#3a2a0d;border-color:var(--mustard);}
+
+  .day-time-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+  .day-time-row{
+    display:flex;align-items:center;gap:10px;background:var(--paper);
+    border-radius:9px;padding:8px 10px;
+  }
+  .day-time-tag{font-size:13px;font-weight:700;color:var(--pine-dark);width:56px;flex-shrink:0;}
+  .day-time-row input[type="time"]{flex:1;width:auto;padding:8px 10px;font-size:15px;}
+  .modal-actions{display:flex;gap:10px;margin-top:6px;}
+  .modal-actions .btn{flex:1;}
+
+  @media (max-width:720px){
+    .foldernav{display:none;}
+    main{padding-top:16px;}
+    .schedule-grid{grid-template-columns:1fr;}
+    .stat-cards{grid-template-columns:1fr;}
+    body{padding-bottom:88px;}
+  }
+  /* iPhone 15 Pro / Pro Max 邏輯寬度微調 (390-430pt) */
+  @media (max-width:430px){
+    .appbar{padding:calc(14px + env(safe-area-inset-top)) 16px 40px;}
+    .brand{font-size:20px;}
+    .brand small{font-size:12px;}
+    main{padding:16px 14px 30px;}
+    .card{padding:16px;border-radius:16px;}
+    .section-title h2{font-size:17px;}
+    .course-row{flex-wrap:wrap;padding:13px 12px;gap:10px;}
+    .course-main{min-width:60%;}
+    .row-actions{width:100%;justify-content:flex-end;}
+    .att-top{gap:7px;}
+    .att-cost{width:100%;order:5;margin-left:0;text-align:right;}
+    .class-chip{padding:10px 10px 11px;}
+    .class-chip button{padding:7px 0;font-size:12px;}
+    .modal{padding:20px 18px calc(22px + env(safe-area-inset-bottom));max-height:85vh;}
+    .modal-actions .btn{min-height:48px;}
+    .stat-card .val{font-size:19px;}
+    table.summary{font-size:12.5px;}
+    table.summary th,table.summary td{padding:10px 6px;}
+  }
+  .bottomnav{
+    display:none;position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:var(--paper-card);border-top:1px solid var(--line);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  @media (max-width:720px){ .bottomnav{display:flex;} }
+  .bottomnav button{
+    flex:1;border:none;background:none;padding:9px 2px;display:flex;flex-direction:column;
+    align-items:center;gap:3px;font-size:11px;color:#8a8a7d;font-weight:600;cursor:pointer;
+    font-family:'Baloo 2',sans-serif;min-height:52px;justify-content:center;
+  }
+  .bottomnav button .ic{font-size:21px;}
+  .bottomnav button.active{color:var(--pine-dark);}
+  .bottomnav button.active .ic{animation:navBounce .6s ease;}
+
+  .fab-row{display:flex;justify-content:flex-end;margin-bottom:2px;}
+
+  .toast{
+    position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(10px);
+    background:var(--ink);color:#fff;padding:10px 18px;border-radius:30px;font-size:13.5px;
+    opacity:0;transition:opacity .25s, transform .25s;z-index:200;pointer-events:none;
+  }
+  @media (min-width:721px){.toast{bottom:24px;}}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .loading{text-align:center;padding:60px 20px;color:#8a8a7d;}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <span class="deco deco-star1">✨</span>
+  <span class="deco deco-star2">⭐</span>
+  <span class="deco deco-cloud">☁️</span>
+  <div class="brand">📖 早療追蹤本<small>安排課程・打卡出席・掌握花費</small></div>
+  <nav class="foldernav" id="foldernav"></nav>
+</header>
+
+<main id="main">
+  <div class="loading">載入中…</div>
+</main>
+
+<nav class="bottomnav" id="bottomnav"></nav>
+
+<div class="overlay" id="overlay">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------- state ---------------- */
+let courses = [];   // {id, subject, day(0-6,0=Sun), time, type, cost}
+let sessions = [];  // {id, courseId, date, attended, note, cost}
+let currentTab = 'courses';
+let editingCourseId = null;
+let editingSessionId = null;
+let weeksToShow = 4;
+let scheduleFilterStart = null;
+let scheduleFilterEnd = null;
+let activeHistoryCourseId = null;
+
+const PALETTE = ['#FF6B81','#2ED9A0','#FFC93C','#28B7E8','#A66DE0','#FF9F45'];
+const DAY_LABEL = ['日','一','二','三','四','五','六'];
+const DAY_ORDER = [1,2,3,4,5,6,0];
+
+const TABS = [
+  {id:'courses', label:'課程設定', icon:'📚'},
+  {id:'schedule', label:'本週課表', icon:'🗓️'},
+  {id:'attendance', label:'學習紀錄', icon:'✅'},
+  {id:'summary', label:'費用總表', icon:'💰'}
+];
+
+function subjectColor(subject){
+  let hash=0;
+  for(let i=0;i<subject.length;i++){ hash = subject.charCodeAt(i) + ((hash<<5)-hash); }
+  return PALETTE[Math.abs(hash)%PALETTE.length];
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function money(n){ return 'NT$'+Math.round(n).toLocaleString(); }
+function dateStr(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function todayStr(){ return dateStr(new Date()); }
+function addDays(date,n){ const d=new Date(date); d.setDate(d.getDate()+n); return d; }
+function mondayOf(date){
+  const d=new Date(date); d.setHours(0,0,0,0);
+  const day=d.getDay();
+  const diff = day===0 ? -6 : 1-day;
+  return addDays(d, diff);
+}
+function dateInRange(ds, start, end){
+  if(start && ds < start) return false;
+  if(end && ds > end) return false;
+  return true;
+}
+function formatWeekLabel(weekStart){
+  const end = addDays(weekStart,6);
+  const sameYear = weekStart.getFullYear()===new Date().getFullYear();
+  const prefix = sameYear ? '' : `${weekStart.getFullYear()}/`;
+  return `${prefix}${weekStart.getMonth()+1}/${weekStart.getDate()} － ${end.getMonth()+1}/${end.getDate()}`;
+}
+function typeLabel(t){ return t==='individual' ? '個別課程' : '團體課程'; }
+function payTypeLabel(p){ return p==='nhi' ? '健保' : '自費'; }
+const SUBJECT_CATEGORIES = ['物理治療','職能治療','語言治療','心理治療','評估','其他'];
+function needsSubjectDetail(cat){ return cat==='評估' || cat==='其他'; }
+function buildSubjectText(category, detail){
+  return needsSubjectDetail(category) && detail ? `${category}：${detail}` : category;
+}
+function daysLabel(days){
+  if(!days || !days.length) return '';
+  return [...days].sort((a,b)=>DAY_ORDER.indexOf(a)-DAY_ORDER.indexOf(b)).map(d=>DAY_LABEL[d]).join('、');
+}
+// 統一取得課程的「星期＋時間」清單，相容舊資料（單一 day/time 或 days 陣列＋共用 time）
+function courseScheduleList(c){
+  if(c.schedule && c.schedule.length) return c.schedule;
+  if(c.days && c.days.length) return c.days.map(d=>({day:d, time:c.time||'17:30'}));
+  if(c.day!==undefined) return [{day:c.day, time:c.time||'17:30'}];
+  return [];
+}
+function scheduleLabel(c){
+  const list = [...courseScheduleList(c)].sort((a,b)=>DAY_ORDER.indexOf(a.day)-DAY_ORDER.indexOf(b.day));
+  return list.map(e=>`星期${DAY_LABEL[e.day]} ${e.time}`).join('、');
+}
+function earliestDayIndex(c){
+  const list = courseScheduleList(c);
+  if(!list.length) return 99;
+  return Math.min(...list.map(e=>DAY_ORDER.indexOf(e.day)));
+}
+function computeDefaultTimeForCourseDate(course, ds){
+  if(!course) return '17:30';
+  const list = courseScheduleList(course);
+  if(!list.length) return '17:30';
+  const wd = parseDateStr(ds).getDay();
+  const entry = list.find(e=>e.day===wd);
+  return entry ? entry.time : list[0].time;
+}
+function formatShortDate(d){
+  if(!d) return '';
+  const [y,m,day] = d.split('-');
+  return `${Number(m)}/${Number(day)}`;
+}
+// 課程狀態：ended（已結束）／upcoming（尚未開始）／active（進行中或未設定區間）
+function courseStatus(c, ref){
+  ref = ref || todayStr();
+  if(c.endDate && ref > c.endDate) return 'ended';
+  if(c.startDate && ref < c.startDate) return 'upcoming';
+  return 'active';
+}
+function isCourseActiveOn(c, ref){ return courseStatus(c, ref) === 'active'; }
+
+/* ---------------- storage (Supabase) ---------------- */
+/* 請填入你自己的 Supabase 專案設定（Settings > API） */
+const SUPABASE_URL = 'https://wwdsviwlvgkhohohghjv.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_SFDPT54I9ZhJpwBNImfRuw_CS4A-im4';
+const SUPABASE_CONFIGURED = !SUPABASE_URL.includes('YOUR-PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR-ANON-KEY');
+const sb = SUPABASE_CONFIGURED ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+async function loadData(){
+  try{
+    const { data, error } = await sb.from('kv_store').select('key,value').in('key', ['tutoring_courses','tutoring_sessions']);
+    if(error) throw error;
+    const map = {};
+    (data||[]).forEach(row=>{ map[row.key] = row.value; });
+    courses = map.tutoring_courses ? JSON.parse(map.tutoring_courses) : [];
+    sessions = map.tutoring_sessions ? JSON.parse(map.tutoring_sessions) : [];
+  }catch(e){
+    console.error('loadData error:', e);
+    courses = [];
+    sessions = [];
+  }
+}
+async function saveCourses(){
+  try{
+    const { error } = await sb.from('kv_store').upsert({ key:'tutoring_courses', value: JSON.stringify(courses), updated_at: new Date().toISOString() });
+    if(error) throw error;
+  }catch(e){ console.error('saveCourses error:', e); showToast('儲存課程失敗，請確認網路連線'); }
+}
+async function saveSessions(){
+  try{
+    const { error } = await sb.from('kv_store').upsert({ key:'tutoring_sessions', value: JSON.stringify(sessions), updated_at: new Date().toISOString() });
+    if(error) throw error;
+  }catch(e){ console.error('saveSessions error:', e); showToast('儲存紀錄失敗，請確認網路連線'); }
+}
+
+/* ---------------- toast ---------------- */
+let toastTimer=null;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2000);
+}
+
+/* ---------------- nav render ---------------- */
+function renderNav(){
+  const fn = document.getElementById('foldernav');
+  const bn = document.getElementById('bottomnav');
+  fn.innerHTML = TABS.map(t=>`
+    <button class="${t.id===currentTab?'active':''}" onclick="switchTab('${t.id}')">
+      <span class="ic">${t.icon}</span><span>${t.label}</span>
+    </button>`).join('');
+  bn.innerHTML = TABS.map(t=>`
+    <button class="${t.id===currentTab?'active':''}" onclick="switchTab('${t.id}')">
+      <span class="ic">${t.icon}</span><span>${t.label}</span>
+    </button>`).join('');
+}
+function switchTab(id){
+  currentTab = id;
+  activeHistoryCourseId = null;
+  renderNav();
+  renderMain();
+}
+
+/* ---------------- main render dispatch ---------------- */
+function renderMain(){
+  const main = document.getElementById('main');
+  if(currentTab==='courses') main.innerHTML = viewCourses();
+  else if(currentTab==='schedule') main.innerHTML = viewSchedule();
+  else if(currentTab==='attendance') main.innerHTML = viewAttendance();
+  else main.innerHTML = viewSummary();
+}
+
+/* ================= COURSES TAB ================= */
+function viewCourses(){
+  const sorted = [...courses].sort((a,b)=> earliestDayIndex(a)-earliestDayIndex(b) || a.time.localeCompare(b.time));
+  const rows = sorted.map(c=>{
+    const status = courseStatus(c);
+    const statusBadge = status==='ended' ? '<span class="badge badge-ended">已結束</span>'
+      : status==='upcoming' ? '<span class="badge badge-upcoming">尚未開始</span>'
+      : '<span class="badge badge-active">進行中</span>';
+    const range = (c.startDate || c.endDate)
+      ? `・${c.startDate?formatShortDate(c.startDate):'開始日不限'} － ${c.endDate?formatShortDate(c.endDate):'結束日不限'}`
+      : '';
+    const unitLine = c.unit ? `<div class="meta">上課單位：${escapeHtml(c.unit)}</div>` : '';
+    return `
+    <div class="course-row">
+      <div class="dot" style="background:${subjectColor(c.subject)}"></div>
+      <div class="course-main">
+        <div class="subj">${escapeHtml(c.subject)}<span class="badge">${typeLabel(c.type)}</span><span class="badge">${payTypeLabel(c.payType)}</span>${statusBadge}</div>
+        <div class="meta">${scheduleLabel(c)}・每堂 ${money(c.cost)}${range}</div>
+        ${unitLine}
+      </div>
+      <div class="row-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openCourseModal('${c.id}')">編輯</button>
+        <button class="btn btn-danger btn-sm" onclick="askDelete('確定要刪除「${escapeHtml(c.subject)}」這堂課嗎？相關學習紀錄也會一併刪除。', 'course', '${c.id}')">刪除</button>
+      </div>
+    </div>`;}).join('');
+
+  return `
+    <div class="card">
+      <div class="section-title">
+        <h2>課程設定</h2>
+        <button class="btn btn-mustard" onclick="openCourseModal()">＋ 新增課程</button>
+      </div>
+      ${courses.length ? rows : `<div class="empty">還沒有安排任何早療課程，點選右上「新增課程」開始設定吧！</div>`}
+    </div>`;
+}
+
+function openCourseModal(id){
+  editingCourseId = id || null;
+  const c = id ? courses.find(x=>x.id===id) : null;
+
+  // 科目分類與細項還原（舊資料沒有分類時，歸類到「其他」以保留原文字）
+  const category = c ? (c.subjectCategory || '其他') : '物理治療';
+  const detail = c ? (c.subjectDetail !== undefined ? c.subjectDetail : (c.subjectCategory ? '' : c.subject)) : '';
+  const catOptions = SUBJECT_CATEGORIES.map(cat=>`<option value="${cat}" ${cat===category?'selected':''}>${cat}</option>`).join('');
+
+  const scheduleList = c ? courseScheduleList(c) : [];
+  const scheduleMap = {};
+  scheduleList.forEach(e=>{ scheduleMap[e.day] = e.time; });
+  const selectedDays = scheduleList.map(e=>e.day);
+  const dayToggles = DAY_ORDER.map(d=>`
+    <label class="chip-toggle day-toggle">
+      <input type="checkbox" class="toggle-input" name="days" value="${d}" onchange="toggleDayTimeRow(this)" ${selectedDays.includes(d)?'checked':''}>
+      <span>${DAY_LABEL[d]}</span>
+    </label>`).join('');
+  const dayTimeRows = DAY_ORDER.map(d=>`
+    <div class="day-time-row" data-day="${d}" style="display:${selectedDays.includes(d)?'flex':'none'}">
+      <span class="day-time-tag">星期${DAY_LABEL[d]}</span>
+      <input type="time" data-time-for="${d}" value="${scheduleMap[d] || '17:30'}">
+    </div>`).join('');
+
+  const payType = c ? (c.payType||'self') : 'self';
+
+  const html = `
+    <h3>${c?'編輯課程':'新增課程'}</h3>
+    <form onsubmit="submitCourseForm(event); return false;">
+      <div class="field-row">
+        <div class="field"><label>開始日期</label><input type="date" name="startDate" value="${c&&c.startDate?c.startDate:''}"></div>
+        <div class="field"><label>結束日期</label><input type="date" name="endDate" value="${c&&c.endDate?c.endDate:''}"></div>
+      </div>
+      <div class="hint" style="margin-top:-8px;margin-bottom:13px;">例如整期早療班從 3/2 上到 7/30，設定區間後課表只會在期間內顯示，兩者皆可留空表示長期上課。</div>
+
+      <div class="field"><label>早療類別</label>
+        <select name="subjectCategory" onchange="toggleSubjectDetail(this)">${catOptions}</select>
+      </div>
+      <div class="field" id="subjectDetailWrap" style="display:${needsSubjectDetail(category)?'block':'none'};">
+        <label>請輸入項目名稱</label>
+        <input name="subjectDetail" value="${escapeAttr(detail)}" placeholder="例如：感覺統合評估、游泳課">
+      </div>
+
+      <div class="field"><label>上課單位</label><input name="unit" value="${c&&c.unit?escapeAttr(c.unit):''}" placeholder="例如：xx醫院、xx職能治療所"></div>
+
+      <div class="field"><label>星期（可複選，各自設定時間）</label>
+        <div class="chip-toggle-group">${dayToggles}</div>
+        <div class="day-time-list" id="dayTimeList">${dayTimeRows}</div>
+      </div>
+
+      <div class="field"><label>課程類型</label>
+        <select name="type">
+          <option value="group" ${c&&c.type==='group'?'selected':''}>團體課程</option>
+          <option value="individual" ${c&&c.type==='individual'?'selected':''}>個別課程</option>
+        </select>
+      </div>
+
+      <div class="field"><label>費用類別</label>
+        <div class="chip-toggle-group">
+          <label class="chip-toggle paytype-toggle">
+            <input type="radio" class="toggle-input" name="payType" value="self" ${payType==='self'?'checked':''}>
+            <span>自費</span>
+          </label>
+          <label class="chip-toggle paytype-toggle">
+            <input type="radio" class="toggle-input" name="payType" value="nhi" ${payType==='nhi'?'checked':''}>
+            <span>健保</span>
+          </label>
+        </div>
+      </div>
+      <div class="field"><label>每堂費用 (NT$)</label><input type="number" name="cost" min="0" step="1" required value="${c?c.cost:''}"></div>
+
+      <div class="modal-actions" style="margin-top:6px;">
+        <button type="button" class="btn btn-ghost" onclick="backOrClose()">取消</button>
+        <button type="button" class="btn btn-primary" onclick="submitCourseForm({target:this.form, preventDefault:function(){}})">儲存</button>
+      </div>
+    </form>`;
+  openModal(html);
+}
+
+function toggleDayTimeRow(checkbox){
+  const day = checkbox.value;
+  const form = checkbox.closest('form');
+  const row = form.querySelector(`.day-time-row[data-day="${day}"]`);
+  if(row){ row.style.display = checkbox.checked ? 'flex' : 'none'; }
+}
+
+function toggleSubjectDetail(sel){
+  const wrap = document.getElementById('subjectDetailWrap');
+  if(wrap){ wrap.style.display = needsSubjectDetail(sel.value) ? 'block' : 'none'; }
+}
+
+async function submitCourseForm(e){
+  e.preventDefault();
+  try{
+    const f = e.target;
+    const category = f.subjectCategory.value;
+    const detailNeeded = needsSubjectDetail(category);
+    const detail = detailNeeded ? f.subjectDetail.value.trim() : '';
+    if(detailNeeded && !detail){
+      showToast('請輸入項目名稱');
+      return false;
+    }
+    const days = Array.from(f.querySelectorAll('input[name="days"]:checked')).map(el=>Number(el.value));
+    if(!days.length){
+      showToast('請至少選擇一個星期');
+      return false;
+    }
+    const schedule = days.map(d=>{
+      const timeInput = f.querySelector(`input[data-time-for="${d}"]`);
+      return { day: d, time: timeInput ? timeInput.value : '17:30' };
+    });
+    const data = {
+      subjectCategory: category,
+      subjectDetail: detail,
+      subject: buildSubjectText(category, detail),
+      unit: f.unit.value.trim(),
+      schedule: schedule,
+      type: f.type.value,
+      payType: f.payType.value,
+      cost: Number(f.cost.value),
+      startDate: f.startDate.value || null,
+      endDate: f.endDate.value || null
+    };
+    if(data.startDate && data.endDate && data.startDate > data.endDate){
+      showToast('結束日期不能早於開始日期');
+      return false;
+    }
+    if(editingCourseId){
+      const c = courses.find(x=>x.id===editingCourseId);
+      Object.assign(c, data);
+    } else {
+      courses.push({id: uid(), ...data});
+    }
+    await saveCourses();
+    closeModal();
+    renderMain();
+    showToast('課程已儲存');
+  }catch(err){
+    console.error('submitCourseForm error:', err);
+    showToast('儲存失敗，請確認欄位後再試一次');
+  }
+  return false;
+}
+
+/* ================= SCHEDULE TAB ================= */
+const MAX_QUERY_WEEKS = 26;
+function parseDateStr(ds){ const [y,m,d]=ds.split('-').map(Number); return new Date(y,m-1,d); }
+
+function viewSchedule(){
+  const filterBar = `
+    <div class="card">
+      <div class="section-title"><h2>查詢日期區間</h2></div>
+      <div class="field-row">
+        <div class="field"><label>起始日期</label><input type="date" id="scheduleStart" value="${scheduleFilterStart||''}"></div>
+        <div class="field"><label>結束日期</label><input type="date" id="scheduleEnd" value="${scheduleFilterEnd||''}"></div>
+      </div>
+      <div class="modal-actions" style="margin-top:2px;">
+        <button class="btn btn-ghost" onclick="clearScheduleFilter()">清除查詢</button>
+        <button class="btn btn-primary" onclick="applyScheduleFilter()">查詢</button>
+      </div>
+      <div class="hint" style="margin-top:8px;">選擇區間即可查詢過往或未來任一時段的課表紀錄，最多可查 ${MAX_QUERY_WEEKS} 週。</div>
+    </div>`;
+
+  const today = mondayOf(new Date());
+  let cards = '';
+  let footer = '';
+
+  if(scheduleFilterStart && scheduleFilterEnd){
+    let startMonday = mondayOf(parseDateStr(scheduleFilterStart));
+    const endMonday = mondayOf(parseDateStr(scheduleFilterEnd));
+    let count = Math.round((endMonday-startMonday)/(7*86400000))+1;
+    let truncated = false;
+    if(count < 1){ count = 1; }
+    if(count > MAX_QUERY_WEEKS){ count = MAX_QUERY_WEEKS; truncated = true; }
+    for(let w=0; w<count; w++){
+      const ws = addDays(startMonday, w*7);
+      cards += renderWeekCard(ws, dateStr(ws)===dateStr(today));
+    }
+    if(truncated){
+      footer = `<div class="hint" style="text-align:center;margin-top:6px;">查詢區間較長，僅顯示前 ${MAX_QUERY_WEEKS} 週，請縮小區間查看其餘週次。</div>`;
+    }
+  } else {
+    for(let w=0; w<weeksToShow; w++){
+      cards += renderWeekCard(addDays(today, w*7), w===0);
+    }
+    footer = courses.length ? `<div style="text-align:center;margin-top:4px;">
+      <button class="btn btn-ghost" onclick="loadMoreWeeks()">載入更多週 ▼</button>
+    </div>` : '';
+  }
+
+  return `
+    <div class="schedule-intro">
+      <h2>課表總覽</h2>
+      <span class="hint">${scheduleFilterStart && scheduleFilterEnd ? '目前為查詢模式，清除查詢可回到本週檢視' : '往下捲動可看到之後幾週的課程安排'}</span>
+    </div>
+    ${filterBar}
+    ${courses.length ? cards : `<div class="card"><div class="empty">尚未安排課程，先到「課程設定」新增吧！</div></div>`}
+    ${footer}`;
+}
+
+function applyScheduleFilter(){
+  const s = document.getElementById('scheduleStart').value;
+  const e = document.getElementById('scheduleEnd').value;
+  if(!s || !e){ showToast('請選擇起始與結束日期'); return; }
+  if(s > e){ showToast('結束日期不能早於起始日期'); return; }
+  scheduleFilterStart = s;
+  scheduleFilterEnd = e;
+  renderMain();
+}
+
+function clearScheduleFilter(){
+  scheduleFilterStart = null;
+  scheduleFilterEnd = null;
+  renderMain();
+}
+
+function renderWeekCard(weekStart, isCurrent){
+  const today = todayStr();
+  const cols = DAY_ORDER.map((wd,i)=>{
+    const date = addDays(weekStart, i);
+    const ds = dateStr(date);
+    const items = courses
+      .filter(c=>dateInRange(ds, c.startDate, c.endDate) && courseScheduleList(c).some(e=>e.day===wd))
+      .map(c=>({ course:c, time: courseScheduleList(c).find(e=>e.day===wd).time }))
+      .sort((a,b)=>a.time.localeCompare(b.time));
+    const chips = items.map(({course:c, time})=>{
+      const existing = sessions.find(s=>s.courseId===c.id && s.date===ds);
+      const action = existing
+        ? `<button class="chip-status ${existing.attended?'chip-yes':'chip-no'}" onclick="openSessionModal('${existing.id}')">${existing.attended?'✓ 已出席':'✕ 未出席'}</button>`
+        : `<button onclick="quickCheckIn('${c.id}','${ds}')">＋ 打卡出席</button>`;
+      return `
+      <div class="class-chip" style="background:${subjectColor(c.subject)}">
+        <div class="t">${time} ${escapeHtml(c.subject)}</div>
+        <div class="s">${typeLabel(c.type)}${c.unit?`・${escapeHtml(c.unit)}`:''}</div>
+        ${action}
+      </div>`;
+    }).join('');
+    return `<div class="day-col ${wd===0||wd===6?'weekend':''} ${ds===today?'today-col':''}">
+      <h3><span class="wd">${DAY_LABEL[wd]}</span><span class="dnum">${date.getMonth()+1}/${date.getDate()}</span></h3>
+      ${items.length ? chips : `<div class="empty-slot">－</div>`}
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="card week-card">
+      <div class="section-title">
+        <h2>${formatWeekLabel(weekStart)}</h2>
+        ${isCurrent ? '<span class="badge badge-active">本週</span>' : ''}
+      </div>
+      <div class="schedule-grid">${cols}</div>
+    </div>`;
+}
+
+function loadMoreWeeks(){
+  weeksToShow += 4;
+  renderMain();
+}
+
+function quickCheckIn(courseId, presetDate){
+  switchTab('attendance');
+  setTimeout(()=>{
+    activeHistoryCourseId = courseId;
+    openSessionModal(null, courseId, presetDate);
+  }, 0);
+}
+
+/* ================= ATTENDANCE TAB (書架式學習紀錄) ================= */
+function viewAttendance(){
+  const topBar = `
+    <div class="card">
+      <div class="section-title">
+        <h2>學習紀錄</h2>
+        <button class="btn btn-mustard" onclick="openSessionModal()" ${courses.length?'':'disabled'}>＋ 新增紀錄</button>
+      </div>
+      <div class="hint">一本書代表一門早療課程，點選書本查看完整學習歷程</div>
+    </div>`;
+
+  if(!courses.length){
+    return `
+      <div class="card">
+        <div class="section-title">
+          <h2>學習紀錄</h2>
+          <button class="btn btn-mustard" disabled>＋ 新增紀錄</button>
+        </div>
+        <div class="empty">請先到「課程設定」新增課程，才能記錄學習狀況喔！</div>
+      </div>`;
+  }
+
+  const sortedCourses = [...courses].sort((a,b)=> earliestDayIndex(a)-earliestDayIndex(b) || a.time.localeCompare(b.time));
+  const books = sortedCourses.map(c=>renderBookCard(c)).join('');
+  const orphan = sessions.filter(s=>!courses.find(c=>c.id===s.courseId));
+  const orphanBook = orphan.length ? renderOrphanBookCard(orphan) : '';
+
+  return `${topBar}<div class="book-grid">${books}${orphanBook}</div>`;
+}
+
+function renderBookCard(c){
+  const list = sessions.filter(s=>s.courseId===c.id);
+  const totalCost = list.filter(s=>s.attended).reduce((sum,s)=>sum+s.cost,0);
+  const color = subjectColor(c.subject);
+  return `
+    <button class="book-card" style="background:${color}" onclick="openCourseHistoryModal('${c.id}')">
+      <div class="book-icon">📖</div>
+      <div class="book-title">${escapeHtml(c.subject)}</div>
+      ${c.unit ? `<div class="book-unit">${escapeHtml(c.unit)}</div>` : ''}
+      <div class="book-sub">已上 ${list.length} 次</div>
+      <div class="book-sub">累計 ${money(totalCost)}</div>
+    </button>`;
+}
+
+function renderOrphanBookCard(list){
+  return `
+    <button class="book-card book-card-orphan" onclick="openOrphanHistoryModal()">
+      <div class="book-icon">📕</div>
+      <div class="book-title">已刪除課程</div>
+      <div class="book-sub">共 ${list.length} 筆紀錄</div>
+    </button>`;
+}
+
+function openCourseHistoryModal(courseId){
+  const c = courses.find(x=>x.id===courseId);
+  if(!c) return;
+  activeHistoryCourseId = courseId;
+  openModal(renderHistoryModalContent(c));
+}
+
+function renderHistoryModalContent(c){
+  const list = sessions.filter(s=>s.courseId===c.id).sort((a,b)=>b.date.localeCompare(a.date));
+  const color = subjectColor(c.subject);
+  const totalCost = list.filter(s=>s.attended).reduce((sum,s)=>sum+s.cost,0);
+  const items = list.length
+    ? list.map(s=>renderHistoryItem(s,color,c.type,c.payType)).join('')
+    : `<div class="empty-slot" style="padding:10px 0 2px;">這門課還沒有任何上課紀錄</div>`;
+  return `
+    <div class="course-history-head">
+      <div class="dot" style="background:${color}"></div>
+      <div class="course-main">
+        <div class="subj">${escapeHtml(c.subject)}</div>
+        <div class="meta">${scheduleLabel(c)}${c.unit?`・${escapeHtml(c.unit)}`:''}${list.length?`・已上 ${list.length} 次・累計 ${money(totalCost)}`:''}</div>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin:14px 0 4px;">
+      <button class="btn btn-ghost" onclick="dismissModal()">關閉</button>
+      <button class="btn btn-mustard" onclick="openSessionModal(null,'${c.id}')">＋ 新增紀錄</button>
+    </div>
+    <div class="timeline">${items}</div>`;
+}
+
+function openOrphanHistoryModal(){
+  activeHistoryCourseId = null;
+  const list = sessions.filter(s=>!courses.find(c=>c.id===s.courseId)).sort((a,b)=>b.date.localeCompare(a.date));
+  const items = list.map(s=>renderHistoryItem(s,'#aaaaaa','group','self')).join('');
+  openModal(`
+    <div class="course-history-head">
+      <div class="dot" style="background:#aaaaaa"></div>
+      <div class="course-main">
+        <div class="subj">已刪除課程的紀錄</div>
+        <div class="meta">共 ${list.length} 筆歷史紀錄</div>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin:14px 0 4px;">
+      <button class="btn btn-ghost" onclick="dismissModal()" style="flex:1;">關閉</button>
+    </div>
+    <div class="timeline">${items}</div>`);
+}
+
+function renderHistoryItem(s, color, fallbackType, fallbackPayType){
+  const typeText = typeLabel(s.type || fallbackType || 'group');
+  const payText = payTypeLabel(s.payType || fallbackPayType || 'self');
+  return `
+    <div class="timeline-item">
+      <div class="timeline-dot" style="background:${color}"></div>
+      <div class="timeline-content">
+        <div class="att-top">
+          <div class="att-date">${s.date}</div>
+          <span class="status-pill ${s.attended?'status-yes':'status-no'}">${s.attended?'已出席':'未出席'}</span>
+          <span class="badge type-badge">${typeText}・${payText}</span>
+        </div>
+        ${s.note ? `<div class="att-note">📝 ${escapeHtml(s.note)}</div>` : ''}
+        <div class="row-actions" style="margin-top:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="openSessionModal('${s.id}')">編輯</button>
+          <button class="btn btn-danger btn-sm" onclick="askDelete('確定要刪除這筆學習紀錄嗎？', 'session', '${s.id}')">刪除</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function openSessionModal(id, presetCourseId, presetDate){
+  editingSessionId = id || null;
+  const s = id ? sessions.find(x=>x.id===id) : null;
+  const courseId = s ? s.courseId : (presetCourseId || (courses[0] && courses[0].id));
+  const courseOptions = courses.map(c=>`<option value="${c.id}" ${c.id===courseId?'selected':''}>${escapeHtml(c.subject)}（${scheduleLabel(c)}）</option>`).join('');
+  const selectedCourse = courses.find(c=>c.id===courseId);
+  const defaultCost = s ? s.cost : (selectedCourse ? selectedCourse.cost : 0);
+  const defaultDate = s ? s.date : (presetDate || todayStr());
+  const defaultTime = s ? (s.time || computeDefaultTimeForCourseDate(selectedCourse, s.date)) : computeDefaultTimeForCourseDate(selectedCourse, defaultDate);
+  const defaultType = s ? (s.type || (selectedCourse?selectedCourse.type:'group')) : (selectedCourse ? selectedCourse.type : 'group');
+  const defaultPayType = s ? (s.payType || (selectedCourse?selectedCourse.payType:'self')) : (selectedCourse ? (selectedCourse.payType||'self') : 'self');
+
+  const html = `
+    <h3>${s?'編輯學習紀錄':'新增打卡紀錄'}</h3>
+    <form onsubmit="submitSessionForm(event); return false;">
+      <div class="field"><label>課程</label>
+        <select name="courseId" onchange="onSessionCourseChange(this)">${courseOptions}</select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>上課日期</label><input type="date" name="date" required value="${defaultDate}" onchange="onSessionDateChange(this)"></div>
+        <div class="field"><label>上課時間</label><input type="time" id="sessionTime" name="time" required value="${defaultTime}"></div>
+      </div>
+      <div class="field"><label>本次課程類型</label>
+        <select id="sessionType" name="type">
+          <option value="group" ${defaultType==='group'?'selected':''}>團體課程</option>
+          <option value="individual" ${defaultType==='individual'?'selected':''}>個別課程</option>
+        </select>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="attendedChk" name="attended" ${s?(s.attended?'checked':''):'checked'}>
+        <label for="attendedChk" style="margin:0;">當天已確實去早療</label>
+      </div>
+      <div class="field"><label>費用類別</label>
+        <div class="chip-toggle-group">
+          <label class="chip-toggle paytype-toggle">
+            <input type="radio" class="toggle-input" id="sessionPayTypeSelf" name="payType" value="self" ${defaultPayType==='self'?'checked':''}>
+            <span>自費</span>
+          </label>
+          <label class="chip-toggle paytype-toggle">
+            <input type="radio" class="toggle-input" id="sessionPayTypeNhi" name="payType" value="nhi" ${defaultPayType==='nhi'?'checked':''}>
+            <span>健保</span>
+          </label>
+        </div>
+      </div>
+      <div class="field"><label>本堂費用 (NT$)</label><input type="number" id="sessionCost" name="cost" min="0" step="1" required value="${defaultCost}"></div>
+      <div class="field"><label>老師提到的注意事項</label><textarea name="note" placeholder="例如：需加強分數計算、下週小考…">${s?escapeHtml(s.note||''):''}</textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" onclick="backOrClose()">取消</button>
+        <button type="button" class="btn btn-primary" onclick="submitSessionForm({target:this.form, preventDefault:function(){}})">儲存</button>
+      </div>
+    </form>`;
+  openModal(html);
+}
+
+function onSessionCourseChange(sel){
+  const c = courses.find(x=>x.id===sel.value);
+  if(c){
+    const form = sel.closest('form');
+    document.getElementById('sessionCost').value = c.cost;
+    const dateVal = form.querySelector('[name="date"]').value;
+    document.getElementById('sessionTime').value = computeDefaultTimeForCourseDate(c, dateVal);
+    document.getElementById('sessionType').value = c.type;
+    const payEl = document.getElementById(c.payType==='nhi'?'sessionPayTypeNhi':'sessionPayTypeSelf');
+    if(payEl){ payEl.checked = true; }
+  }
+}
+
+function onSessionDateChange(dateInput){
+  const form = dateInput.closest('form');
+  const courseId = form.querySelector('[name="courseId"]').value;
+  const c = courses.find(x=>x.id===courseId);
+  if(c){
+    document.getElementById('sessionTime').value = computeDefaultTimeForCourseDate(c, dateInput.value);
+  }
+}
+
+async function submitSessionForm(e){
+  e.preventDefault();
+  try{
+    const f = e.target;
+    const data = {
+      courseId: f.courseId.value,
+      date: f.date.value,
+      time: f.time.value,
+      type: f.type.value,
+      payType: f.payType.value,
+      attended: f.attended.checked,
+      cost: Number(f.cost.value),
+      note: f.note.value.trim()
+    };
+    // 防止同一課程同一天重複打卡
+    const dup = sessions.find(s=> s.courseId===data.courseId && s.date===data.date && s.id!==editingSessionId);
+    if(dup){
+      showToast('這堂課這天已經打卡過了，已為你開啟該筆紀錄');
+      if(activeHistoryCourseId){ activeHistoryCourseId = dup.courseId; }
+      openSessionModal(dup.id);
+      return false;
+    }
+    if(editingSessionId){
+      const s = sessions.find(x=>x.id===editingSessionId);
+      Object.assign(s, data);
+    } else {
+      sessions.push({id: uid(), ...data});
+    }
+    await saveSessions();
+    if(activeHistoryCourseId){
+      activeHistoryCourseId = data.courseId;
+      renderMain();
+      openCourseHistoryModal(activeHistoryCourseId);
+    } else {
+      dismissModal();
+      renderMain();
+    }
+    showToast('學習紀錄已儲存');
+  }catch(err){
+    console.error('submitSessionForm error:', err);
+    showToast('儲存失敗，請確認欄位後再試一次');
+  }
+  return false;
+}
+
+/* ================= SUMMARY TAB ================= */
+function viewSummary(){
+  const attended = sessions.filter(s=>s.attended);
+  const grandTotal = attended.reduce((sum,s)=>sum+s.cost,0);
+
+  // 2. 依科別（subjectCategory）加總
+  const categoryTotals = {};
+  attended.forEach(s=>{
+    const c = courses.find(x=>x.id===s.courseId);
+    const cat = c ? (c.subjectCategory || '其他') : '已刪除課程';
+    if(!categoryTotals[cat]) categoryTotals[cat] = {total:0, count:0};
+    categoryTotals[cat].total += s.cost;
+    categoryTotals[cat].count += 1;
+  });
+  const categoryEntries = Object.entries(categoryTotals).sort((a,b)=>b[1].total-a[1].total);
+  const categoryRows = categoryEntries.map(([cat,v])=>`
+    <tr>
+      <td>${escapeHtml(cat)}</td>
+      <td>${v.count} 次</td>
+      <td class="num">${money(v.total)}</td>
+    </tr>`).join('');
+
+  // 3. 依月份加總（YYYY-MM）
+  const monthTotals = {};
+  attended.forEach(s=>{
+    const ym = s.date.slice(0,7);
+    if(!monthTotals[ym]) monthTotals[ym] = {total:0, count:0};
+    monthTotals[ym].total += s.cost;
+    monthTotals[ym].count += 1;
+  });
+  const monthEntries = Object.entries(monthTotals).sort((a,b)=>b[0].localeCompare(a[0]));
+  const monthRows = monthEntries.map(([ym,v])=>{
+    const [y,m] = ym.split('-');
+    return `
+    <button class="month-row" onclick="openMonthDetailModal('${ym}')">
+      <span class="month-label">${y}年${Number(m)}月</span>
+      <span class="month-count">${v.count} 次</span>
+      <span class="month-total num">${money(v.total)}</span>
+      <span class="month-arrow">›</span>
+    </button>`;
+  }).join('');
+
+  return `
+    <div class="stat-cards" style="grid-template-columns:1fr;">
+      <div class="stat-card">
+        <div class="lbl">所有已打卡紀錄・累計總費用</div>
+        <div class="val num">${money(grandTotal)}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title"><h2>依科別列出總費用</h2></div>
+      ${categoryEntries.length ? `
+      <div class="table-wrap">
+        <table class="summary">
+          <thead><tr><th>科別</th><th>次數</th><th>總費用</th></tr></thead>
+          <tbody>${categoryRows}</tbody>
+        </table>
+      </div>` : `<div class="empty">目前還沒有任何已出席的打卡紀錄</div>`}
+    </div>
+
+    <div class="card">
+      <div class="section-title"><h2>每月累計費用</h2></div>
+      ${monthEntries.length ? `<div class="month-list">${monthRows}</div>` : `<div class="empty">目前還沒有任何已出席的打卡紀錄</div>`}
+      ${monthEntries.length ? `<div class="hint" style="margin-top:8px;">點選月份可查看該月的詳細紀錄</div>` : ''}
+    </div>`;
+}
+
+function renderMonthDetailItem(s){
+  const c = courses.find(x=>x.id===s.courseId);
+  const subject = c ? c.subject : '（課程已刪除）';
+  const color = c ? subjectColor(c.subject) : '#aaaaaa';
+  return `
+    <div class="timeline-item">
+      <div class="timeline-dot" style="background:${color}"></div>
+      <div class="timeline-content">
+        <div class="att-top">
+          <div class="att-date">${s.date}</div>
+          <span class="badge">${escapeHtml(subject)}</span>
+          <span class="badge type-badge">${money(s.cost)}</span>
+        </div>
+        ${s.note ? `<div class="att-note">📝 ${escapeHtml(s.note)}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+function openMonthDetailModal(ym){
+  const list = sessions.filter(s=>s.attended && s.date.startsWith(ym)).sort((a,b)=>b.date.localeCompare(a.date));
+  const total = list.reduce((sum,s)=>sum+s.cost,0);
+  const [y,m] = ym.split('-');
+  const items = list.length
+    ? list.map(renderMonthDetailItem).join('')
+    : `<div class="empty-slot">這個月沒有已出席的紀錄</div>`;
+  openModal(`
+    <h3>${y}年${Number(m)}月明細</h3>
+    <div class="hint" style="margin-bottom:12px;">共 ${list.length} 筆・合計 ${money(total)}</div>
+    <div class="modal-actions" style="margin-bottom:4px;">
+      <button class="btn btn-ghost" onclick="dismissModal()" style="flex:1;">關閉</button>
+    </div>
+    <div class="timeline">${items}</div>`);
+}
+
+/* ================= modal & confirm ================= */
+function openModal(html){
+  document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('overlay').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('overlay').classList.remove('show');
+  editingCourseId = null;
+  editingSessionId = null;
+}
+function dismissModal(){
+  activeHistoryCourseId = null;
+  closeModal();
+}
+function backOrClose(){
+  if(activeHistoryCourseId){
+    openCourseHistoryModal(activeHistoryCourseId);
+  } else {
+    dismissModal();
+  }
+}
+document.getElementById('overlay').addEventListener('click', (e)=>{
+  if(e.target.id==='overlay') backOrClose();
+});
+
+let pendingDelete = null;
+function askDelete(message, kind, id){
+  pendingDelete = {kind, id};
+  openModal(`
+    <h3>請確認</h3>
+    <p style="font-size:14px;color:#4a4a40;">${message}</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="backOrClose()">取消</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">刪除</button>
+    </div>`);
+}
+async function confirmDelete(){
+  if(!pendingDelete) return;
+  const {kind, id} = pendingDelete;
+  if(kind==='course'){
+    courses = courses.filter(c=>c.id!==id);
+    sessions = sessions.filter(s=>s.courseId!==id);
+    await saveCourses();
+    await saveSessions();
+    if(activeHistoryCourseId===id) activeHistoryCourseId = null;
+    pendingDelete = null;
+    dismissModal();
+    renderMain();
+  } else if(kind==='session'){
+    sessions = sessions.filter(s=>s.id!==id);
+    await saveSessions();
+    pendingDelete = null;
+    if(activeHistoryCourseId){
+      renderMain();
+      openCourseHistoryModal(activeHistoryCourseId);
+    } else {
+      dismissModal();
+      renderMain();
+    }
+  }
+  showToast('已刪除');
+}
+
+/* ================= helpers ================= */
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function escapeAttr(str){ return escapeHtml(str); }
+
+/* ================= init ================= */
+/* ================= 全域錯誤防護 ================= */
+window.addEventListener('error', function(e){
+  console.error('App error:', e.error || e.message);
+  try{ showToast('發生錯誤，畫面已自動重整，請再試一次'); }catch(_){}
+  try{ renderMain(); }catch(_){}
+});
+window.addEventListener('unhandledrejection', function(e){
+  console.error('Unhandled promise rejection:', e.reason);
+  try{ showToast('儲存時發生錯誤，請再試一次'); }catch(_){}
+  try{ closeModal(); renderMain(); }catch(_){}
+});
+
+async function init(){
+  if(!SUPABASE_CONFIGURED){
+    document.getElementById('main').innerHTML = `
+      <div class="card">
+        <div class="section-title"><h2>⚙️ 尚未設定資料庫</h2></div>
+        <p style="font-size:14.5px;line-height:1.7;color:#4a4a40;">
+          這個 App 需要連接你自己的 Supabase 專案才能存資料。<br>
+          請打開這個 HTML 檔案，找到程式碼中的：
+        </p>
+        <pre style="background:var(--paper);padding:12px;border-radius:10px;font-size:12.5px;overflow-x:auto;">const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';</pre>
+        <p style="font-size:14.5px;line-height:1.7;color:#4a4a40;">
+          換成你自己 Supabase 專案的 Project URL 與 anon public key（在 Supabase 後台 Settings → API 可以找到），存檔後重新整理即可。
+        </p>
+      </div>`;
+    document.getElementById('foldernav').innerHTML = '';
+    document.getElementById('bottomnav').innerHTML = '';
+    return;
+  }
+  await loadData();
+  renderNav();
+  renderMain();
+}
+init();
+</script>
+</body>
+</html>
