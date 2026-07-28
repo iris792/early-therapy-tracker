@@ -454,7 +454,7 @@ function formatWeekLabel(weekStart){
 }
 function typeLabel(t){ return t==='individual' ? '個別課程' : '團體課程'; }
 function payTypeLabel(p){ return p==='nhi' ? '健保' : '自費'; }
-const SUBJECT_CATEGORIES = ['物理治療','職能治療','語言治療','心理治療','評估','其他'];
+const SUBJECT_CATEGORIES = ['物理治療','職能治療','語言治療','心理治療','評估回診','其他'];
 function needsSubjectDetail(cat){ return cat==='評估' || cat==='其他'; }
 function buildSubjectText(category, detail){
   return needsSubjectDetail(category) && detail ? `${category}：${detail}` : category;
@@ -506,10 +506,25 @@ function isCourseActiveOn(c, ref){ return courseStatus(c, ref) === 'active'; }
 const SUPABASE_URL = 'https://wwdsviwlvgkhohohghjv.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_SFDPT54I9ZhJpwBNImfRuw_CS4A-im4';
 const SUPABASE_CONFIGURED = !SUPABASE_URL.includes('YOUR-PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR-ANON-KEY');
-const sb = SUPABASE_CONFIGURED ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+let sb = null;
+let SUPABASE_LIB_MISSING = false;
+try{
+  if(SUPABASE_CONFIGURED){
+    if(window.supabase && typeof window.supabase.createClient === 'function'){
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } else {
+      SUPABASE_LIB_MISSING = true;
+      console.error('Supabase JS 函式庫尚未載入完成');
+    }
+  }
+}catch(e){
+  console.error('Supabase 初始化失敗:', e);
+  SUPABASE_LIB_MISSING = true;
+}
 
 async function loadData(){
   try{
+    if(!sb) throw new Error('Supabase 尚未連線');
     const { data, error } = await sb.from('kv_store').select('key,value').in('key', ['tutoring_courses','tutoring_sessions']);
     if(error) throw error;
     const map = {};
@@ -524,12 +539,14 @@ async function loadData(){
 }
 async function saveCourses(){
   try{
+    if(!sb) throw new Error('Supabase 尚未連線');
     const { error } = await sb.from('kv_store').upsert({ key:'tutoring_courses', value: JSON.stringify(courses), updated_at: new Date().toISOString() });
     if(error) throw error;
   }catch(e){ console.error('saveCourses error:', e); showToast('儲存課程失敗，請確認網路連線'); }
 }
 async function saveSessions(){
   try{
+    if(!sb) throw new Error('Supabase 尚未連線');
     const { error } = await sb.from('kv_store').upsert({ key:'tutoring_sessions', value: JSON.stringify(sessions), updated_at: new Date().toISOString() });
     if(error) throw error;
   }catch(e){ console.error('saveSessions error:', e); showToast('儲存紀錄失敗，請確認網路連線'); }
@@ -1302,6 +1319,14 @@ window.addEventListener('unhandledrejection', function(e){
   try{ closeModal(); renderMain(); }catch(_){}
 });
 
+async function waitForSupabaseLib(maxWaitMs){
+  const start = Date.now();
+  while(!(window.supabase && typeof window.supabase.createClient==='function') && (Date.now()-start) < maxWaitMs){
+    await new Promise(r=>setTimeout(r, 100));
+  }
+  return !!(window.supabase && typeof window.supabase.createClient==='function');
+}
+
 async function init(){
   if(!SUPABASE_CONFIGURED){
     document.getElementById('main').innerHTML = `
@@ -1315,6 +1340,27 @@ async function init(){
 const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';</pre>
         <p style="font-size:14.5px;line-height:1.7;color:#4a4a40;">
           換成你自己 Supabase 專案的 Project URL 與 anon public key（在 Supabase 後台 Settings → API 可以找到），存檔後重新整理即可。
+        </p>
+      </div>`;
+    document.getElementById('foldernav').innerHTML = '';
+    document.getElementById('bottomnav').innerHTML = '';
+    return;
+  }
+  if(!sb){
+    // 資料庫函式庫可能還在載入中（網路較慢），稍微等待後再試一次
+    const ok = await waitForSupabaseLib(3000);
+    if(ok){
+      try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
+      catch(e){ console.error('Supabase 初始化失敗:', e); }
+    }
+  }
+  if(!sb){
+    document.getElementById('main').innerHTML = `
+      <div class="card">
+        <div class="section-title"><h2>⚠️ 無法連接資料庫元件</h2></div>
+        <p style="font-size:14.5px;line-height:1.7;color:#4a4a40;">
+          資料庫連線函式庫載入失敗，可能是網路不穩定，或瀏覽器的隱私/廣告封鎖功能擋住了外部程式庫。<br>
+          請檢查網路連線，或暫時關閉封鎖功能後，重新整理這個頁面再試一次。
         </p>
       </div>`;
     document.getElementById('foldernav').innerHTML = '';
