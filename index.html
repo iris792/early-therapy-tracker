@@ -232,7 +232,7 @@
     border:none;cursor:pointer;color:#fff;border-radius:12px 12px 8px 8px;
     padding:18px 12px 14px;text-align:left;
     box-shadow:0 3px 8px rgba(37,52,58,0.16), inset 0 0 0 1px rgba(255,255,255,0.15);
-    display:flex;flex-direction:column;gap:2px;min-height:118px;
+    display:flex;flex-direction:column;gap:2px;min-height:132px;
     position:relative;overflow:hidden;transition:transform .12s;
     font-family:'Noto Sans TC',sans-serif;
   }
@@ -250,7 +250,22 @@
     background:rgba(0,0,0,0.24);padding:2px 8px;border-radius:20px;
     font-family:'JetBrains Mono',monospace;
   }
+  .book-range{font-size:9.5px;opacity:0.85;font-family:'JetBrains Mono',monospace;line-height:1.35;margin:1px 0 3px;}
   .book-card-orphan{background:#9a9a8c;}
+
+  .category-section{margin-bottom:22px;}
+  .category-heading{
+    font-size:17px;font-weight:800;color:var(--pine-dark);
+    margin:2px 0 12px;padding-left:11px;
+    border-left:5px solid var(--mustard);
+  }
+  .unit-group{margin-bottom:16px;}
+  .unit-group:last-child{margin-bottom:0;}
+  .unit-label{
+    font-size:12.5px;font-weight:700;color:#7a7a6c;
+    margin:0 0 8px 3px;display:flex;align-items:center;gap:4px;
+  }
+  .unit-label::before{content:"📍";font-size:11px;}
 
   .stat-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
   .stat-card{background:var(--pine);color:#fff;border-radius:12px;padding:14px 12px;}
@@ -503,6 +518,11 @@ function formatShortDate(d){
   if(!d) return '';
   const [y,m,day] = d.split('-');
   return `${Number(m)}/${Number(day)}`;
+}
+function formatFullDate(d){
+  if(!d) return '';
+  const [y,m,day] = d.split('-');
+  return `${y}/${Number(m)}/${Number(day)}`;
 }
 // 課程狀態：ended（已結束）／upcoming（尚未開始）／active（進行中或未設定區間）
 function courseStatus(c, ref){
@@ -976,17 +996,45 @@ function viewAttendance(){
     const idx = SUBJECT_CATEGORIES.indexOf(c.subjectCategory);
     return idx === -1 ? SUBJECT_CATEGORIES.length : idx;
   }
-  const sortedCourses = [...courses].sort((a,b)=>
-    categoryIndex(a)-categoryIndex(b) ||
-    (a.unit||'').localeCompare(b.unit||'', 'zh-Hant') ||
-    earliestDayIndex(a)-earliestDayIndex(b) ||
-    earliestTimeStr(a).localeCompare(earliestTimeStr(b))
-  );
-  const books = sortedCourses.map(c=>renderBookCard(c)).join('');
-  const orphan = sessions.filter(s=>!courses.find(c=>c.id===s.courseId));
-  const orphanBook = orphan.length ? renderOrphanBookCard(orphan) : '';
 
-  return `${topBar}<div class="book-grid">${books}${orphanBook}</div>`;
+  // 依「早療類別」分組，組內再依「上課單位」分組
+  const catGroups = {};
+  courses.forEach(c=>{
+    const cat = c.subjectCategory || '其他';
+    const unit = c.unit ? c.unit : '未填寫上課單位';
+    if(!catGroups[cat]) catGroups[cat] = {};
+    if(!catGroups[cat][unit]) catGroups[cat][unit] = [];
+    catGroups[cat][unit].push(c);
+  });
+  const orderedCats = Object.keys(catGroups).sort((a,b)=>{
+    const ai = SUBJECT_CATEGORIES.indexOf(a), bi = SUBJECT_CATEGORIES.indexOf(b);
+    return (ai===-1?SUBJECT_CATEGORIES.length:ai) - (bi===-1?SUBJECT_CATEGORIES.length:bi);
+  });
+
+  const sections = orderedCats.map(cat=>{
+    const units = Object.keys(catGroups[cat]).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+    const unitBlocks = units.map(unit=>{
+      const list = [...catGroups[cat][unit]].sort((a,b)=>
+        earliestDayIndex(a)-earliestDayIndex(b) || earliestTimeStr(a).localeCompare(earliestTimeStr(b))
+      );
+      const cardsHtml = list.map(c=>renderBookCard(c)).join('');
+      return `
+        <div class="unit-group">
+          <div class="unit-label">${escapeHtml(unit)}</div>
+          <div class="book-grid">${cardsHtml}</div>
+        </div>`;
+    }).join('');
+    return `
+      <div class="category-section">
+        <h3 class="category-heading">${escapeHtml(cat)}</h3>
+        ${unitBlocks}
+      </div>`;
+  }).join('');
+
+  const orphan = sessions.filter(s=>!courses.find(c=>c.id===s.courseId));
+  const orphanBook = orphan.length ? `<div class="category-section"><div class="book-grid">${renderOrphanBookCard(orphan)}</div></div>` : '';
+
+  return `${topBar}${sections}${orphanBook}`;
 }
 
 function renderBookCard(c){
@@ -994,12 +1042,16 @@ function renderBookCard(c){
   const totalCost = list.filter(s=>s.attended).reduce((sum,s)=>sum+s.cost,0);
   const color = subjectColor(c.subject);
   const firstDate = list.length ? list.reduce((min,s)=> s.date<min?s.date:min, list[0].date) : null;
+  const rangeLabel = (c.startDate || c.endDate)
+    ? `${c.startDate?formatFullDate(c.startDate):'不限'}－${c.endDate?formatFullDate(c.endDate):'不限'}`
+    : '長期上課';
   return `
     <button class="book-card" style="background:${color}" onclick="openCourseHistoryModal('${c.id}')">
       ${firstDate ? `<span class="book-date">${formatShortDate(firstDate)}</span>` : ''}
       <div class="book-icon">📖</div>
       <div class="book-title">${escapeHtml(c.subject)}</div>
       ${c.unit ? `<div class="book-unit">${escapeHtml(c.unit)}</div>` : ''}
+      <div class="book-range">${rangeLabel}</div>
       <div class="book-sub">已上 ${list.length} 次</div>
       <div class="book-sub">累計 ${money(totalCost)}</div>
     </button>`;
