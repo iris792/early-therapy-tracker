@@ -479,6 +479,12 @@ function earliestDayIndex(c){
   if(!list.length) return 99;
   return Math.min(...list.map(e=>DAY_ORDER.indexOf(e.day)));
 }
+function earliestTimeStr(c){
+  const list = courseScheduleList(c);
+  if(!list.length) return '';
+  const sorted = [...list].sort((a,b)=>DAY_ORDER.indexOf(a.day)-DAY_ORDER.indexOf(b.day) || a.time.localeCompare(b.time));
+  return sorted[0].time || '';
+}
 function computeDefaultTimeForCourseDate(course, ds){
   if(!course) return '17:30';
   const list = courseScheduleList(course);
@@ -536,10 +542,21 @@ function describeError(e){
   try{ return JSON.stringify(e); }catch(_){ return String(e); }
 }
 
+// 為 Promise 加上逾時保護，避免網路卡住時永遠等不到回應
+function withTimeout(promise, ms, label){
+  return Promise.race([
+    promise,
+    new Promise((_, reject)=> setTimeout(()=> reject(new Error(`${label || '連線'}逾時，請檢查網路後再試一次`)), ms))
+  ]);
+}
+
 async function loadData(){
   try{
     if(!sb) throw new Error('Supabase 尚未連線');
-    const { data, error } = await sb.from('kv_store').select('key,value').in('key', ['tutoring_courses','tutoring_sessions']);
+    const { data, error } = await withTimeout(
+      sb.from('kv_store').select('key,value').in('key', ['tutoring_courses','tutoring_sessions']),
+      10000, '讀取資料'
+    );
     if(error) throw error;
     const map = {};
     (data||[]).forEach(row=>{ map[row.key] = row.value; });
@@ -554,18 +571,20 @@ async function loadData(){
   }
 }
 async function saveCourses(){
-  try{
-    if(!sb) throw new Error('Supabase 尚未連線');
-    const { error } = await sb.from('kv_store').upsert({ key:'tutoring_courses', value: JSON.stringify(courses), updated_at: new Date().toISOString() });
-    if(error) throw error;
-  }catch(e){ console.error('saveCourses error:', describeError(e)); showToast('儲存課程失敗：' + describeError(e)); }
+  if(!sb) throw new Error('Supabase 尚未連線');
+  const { error } = await withTimeout(
+    sb.from('kv_store').upsert({ key:'tutoring_courses', value: JSON.stringify(courses), updated_at: new Date().toISOString() }),
+    10000, '儲存課程'
+  );
+  if(error) throw error;
 }
 async function saveSessions(){
-  try{
-    if(!sb) throw new Error('Supabase 尚未連線');
-    const { error } = await sb.from('kv_store').upsert({ key:'tutoring_sessions', value: JSON.stringify(sessions), updated_at: new Date().toISOString() });
-    if(error) throw error;
-  }catch(e){ console.error('saveSessions error:', describeError(e)); showToast('儲存紀錄失敗：' + describeError(e)); }
+  if(!sb) throw new Error('Supabase 尚未連線');
+  const { error } = await withTimeout(
+    sb.from('kv_store').upsert({ key:'tutoring_sessions', value: JSON.stringify(sessions), updated_at: new Date().toISOString() }),
+    10000, '儲存紀錄'
+  );
+  if(error) throw error;
 }
 
 /* ---------------- toast ---------------- */
@@ -609,7 +628,7 @@ function renderMain(){
 
 /* ================= COURSES TAB ================= */
 function viewCourses(){
-  const sorted = [...courses].sort((a,b)=> earliestDayIndex(a)-earliestDayIndex(b) || a.time.localeCompare(b.time));
+  const sorted = [...courses].sort((a,b)=> earliestDayIndex(a)-earliestDayIndex(b) || earliestTimeStr(a).localeCompare(earliestTimeStr(b)));
   const rows = sorted.map(c=>{
     const status = courseStatus(c);
     const statusBadge = status==='ended' ? '<span class="badge badge-ended">已結束</span>'
@@ -716,7 +735,7 @@ function openCourseModal(id){
 
       <div class="modal-actions" style="margin-top:6px;">
         <button type="button" class="btn btn-ghost" onclick="backOrClose()">取消</button>
-        <button type="button" class="btn btn-primary" onclick="submitCourseForm({target:this.form, preventDefault:function(){}})">儲存</button>
+        <button type="button" class="btn btn-primary" onclick="submitCourseForm({target:this.form, preventDefault:function(){}}, this)">儲存</button>
       </div>
     </form>`;
   openModal(html);
@@ -734,8 +753,9 @@ function toggleSubjectDetail(sel){
   if(wrap){ wrap.style.display = needsSubjectDetail(sel.value) ? 'block' : 'none'; }
 }
 
-async function submitCourseForm(e){
+async function submitCourseForm(e, btnEl){
   e.preventDefault();
+  if(btnEl){ btnEl.disabled = true; btnEl.textContent = '儲存中…'; }
   try{
     const f = e.target;
     const category = f.subjectCategory.value;
@@ -748,6 +768,10 @@ async function submitCourseForm(e){
     const days = Array.from(f.querySelectorAll('input[name="days"]:checked')).map(el=>Number(el.value));
     if(!days.length){
       showToast('請至少選擇一個星期');
+      return false;
+    }
+    if(f.cost.value === '' || isNaN(Number(f.cost.value))){
+      showToast('請輸入每堂費用');
       return false;
     }
     const schedule = days.map(d=>{
@@ -770,19 +794,30 @@ async function submitCourseForm(e){
       showToast('結束日期不能早於開始日期');
       return false;
     }
-    if(editingCourseId){
-      const c = courses.find(x=>x.id===editingCourseId);
-      Object.assign(c, data);
+    const existing = editingCourseId ? courses.find(x=>x.id===editingCourseId) : null;
+    const prevSnapshot = existing ? {...existing} : null;
+    let pushedCourse = null;
+    if(existing){
+      Object.assign(existing, data);
     } else {
-      courses.push({id: uid(), ...data});
+      pushedCourse = {id: uid(), ...data};
+      courses.push(pushedCourse);
     }
-    await saveCourses();
+    try{
+      await saveCourses();
+    }catch(err){
+      if(existing && prevSnapshot){ Object.assign(existing, prevSnapshot); }
+      if(pushedCourse){ courses = courses.filter(c=>c!==pushedCourse); }
+      throw err;
+    }
     closeModal();
     renderMain();
     showToast('課程已儲存');
   }catch(err){
-    console.error('submitCourseForm error:', err);
-    showToast('儲存失敗，請確認欄位後再試一次');
+    console.error('submitCourseForm error:', describeError(err));
+    showToast('儲存失敗：' + describeError(err));
+  } finally {
+    if(btnEl){ btnEl.disabled = false; btnEl.textContent = '儲存'; }
   }
   return false;
 }
@@ -931,7 +966,7 @@ function viewAttendance(){
       </div>`;
   }
 
-  const sortedCourses = [...courses].sort((a,b)=> earliestDayIndex(a)-earliestDayIndex(b) || a.time.localeCompare(b.time));
+  const sortedCourses = [...courses].sort((a,b)=> earliestDayIndex(a)-earliestDayIndex(b) || earliestTimeStr(a).localeCompare(earliestTimeStr(b)));
   const books = sortedCourses.map(c=>renderBookCard(c)).join('');
   const orphan = sessions.filter(s=>!courses.find(c=>c.id===s.courseId));
   const orphanBook = orphan.length ? renderOrphanBookCard(orphan) : '';
@@ -1078,7 +1113,7 @@ function openSessionModal(id, presetCourseId, presetDate){
       <div class="field"><label>老師提到的注意事項</label><textarea name="note" placeholder="例如：需加強分數計算、下週小考…">${s?escapeHtml(s.note||''):''}</textarea></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" onclick="backOrClose()">取消</button>
-        <button type="button" class="btn btn-primary" onclick="submitSessionForm({target:this.form, preventDefault:function(){}})">儲存</button>
+        <button type="button" class="btn btn-primary" onclick="submitSessionForm({target:this.form, preventDefault:function(){}}, this)">儲存</button>
       </div>
     </form>`;
   openModal(html);
@@ -1106,8 +1141,9 @@ function onSessionDateChange(dateInput){
   }
 }
 
-async function submitSessionForm(e){
+async function submitSessionForm(e, btnEl){
   e.preventDefault();
+  if(btnEl){ btnEl.disabled = true; btnEl.textContent = '儲存中…'; }
   try{
     const f = e.target;
     const data = {
@@ -1128,13 +1164,22 @@ async function submitSessionForm(e){
       openSessionModal(dup.id);
       return false;
     }
-    if(editingSessionId){
-      const s = sessions.find(x=>x.id===editingSessionId);
-      Object.assign(s, data);
+    const existingSession = editingSessionId ? sessions.find(x=>x.id===editingSessionId) : null;
+    const prevSnapshot = existingSession ? {...existingSession} : null;
+    let pushedSession = null;
+    if(existingSession){
+      Object.assign(existingSession, data);
     } else {
-      sessions.push({id: uid(), ...data});
+      pushedSession = {id: uid(), ...data};
+      sessions.push(pushedSession);
     }
-    await saveSessions();
+    try{
+      await saveSessions();
+    }catch(err){
+      if(existingSession && prevSnapshot){ Object.assign(existingSession, prevSnapshot); }
+      if(pushedSession){ sessions = sessions.filter(s=>s!==pushedSession); }
+      throw err;
+    }
     if(activeHistoryCourseId){
       activeHistoryCourseId = data.courseId;
       renderMain();
@@ -1145,8 +1190,10 @@ async function submitSessionForm(e){
     }
     showToast('學習紀錄已儲存');
   }catch(err){
-    console.error('submitSessionForm error:', err);
-    showToast('儲存失敗，請確認欄位後再試一次');
+    console.error('submitSessionForm error:', describeError(err));
+    showToast('儲存失敗：' + describeError(err));
+  } finally {
+    if(btnEl){ btnEl.disabled = false; btnEl.textContent = '儲存'; }
   }
   return false;
 }
@@ -1292,28 +1339,45 @@ function askDelete(message, kind, id){
 async function confirmDelete(){
   if(!pendingDelete) return;
   const {kind, id} = pendingDelete;
-  if(kind==='course'){
-    courses = courses.filter(c=>c.id!==id);
-    sessions = sessions.filter(s=>s.courseId!==id);
-    await saveCourses();
-    await saveSessions();
-    if(activeHistoryCourseId===id) activeHistoryCourseId = null;
-    pendingDelete = null;
-    dismissModal();
-    renderMain();
-  } else if(kind==='session'){
-    sessions = sessions.filter(s=>s.id!==id);
-    await saveSessions();
-    pendingDelete = null;
-    if(activeHistoryCourseId){
-      renderMain();
-      openCourseHistoryModal(activeHistoryCourseId);
-    } else {
+  try{
+    if(kind==='course'){
+      const backupCourses = courses, backupSessions = sessions;
+      courses = courses.filter(c=>c.id!==id);
+      sessions = sessions.filter(s=>s.courseId!==id);
+      try{
+        await saveCourses();
+        await saveSessions();
+      }catch(err){
+        courses = backupCourses; sessions = backupSessions;
+        throw err;
+      }
+      if(activeHistoryCourseId===id) activeHistoryCourseId = null;
+      pendingDelete = null;
       dismissModal();
       renderMain();
+    } else if(kind==='session'){
+      const backupSessions = sessions;
+      sessions = sessions.filter(s=>s.id!==id);
+      try{
+        await saveSessions();
+      }catch(err){
+        sessions = backupSessions;
+        throw err;
+      }
+      pendingDelete = null;
+      if(activeHistoryCourseId){
+        renderMain();
+        openCourseHistoryModal(activeHistoryCourseId);
+      } else {
+        dismissModal();
+        renderMain();
+      }
     }
+    showToast('已刪除');
+  }catch(err){
+    console.error('confirmDelete error:', describeError(err));
+    showToast('刪除失敗：' + describeError(err));
   }
-  showToast('已刪除');
 }
 
 /* ================= helpers ================= */
