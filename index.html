@@ -258,6 +258,11 @@
     font-size:17px;font-weight:800;color:var(--pine-dark);
     margin:2px 0 12px;padding-left:11px;
     border-left:5px solid var(--mustard);
+    display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;
+  }
+  .category-stats{
+    font-size:12px;font-weight:600;color:#8a8a7d;
+    font-family:'JetBrains Mono',monospace;
   }
   .unit-group{margin-bottom:16px;}
   .unit-group:last-child{margin-bottom:0;}
@@ -266,6 +271,12 @@
     margin:0 0 8px 3px;display:flex;align-items:center;gap:4px;
   }
   .unit-label::before{content:"📍";font-size:11px;}
+  .book-card-ended{opacity:0.82;}
+  .book-card-ended::after{
+    content:"已結束";position:absolute;bottom:10px;right:10px;
+    font-size:9.5px;font-weight:700;color:#fff;
+    background:rgba(0,0,0,0.28);padding:2px 7px;border-radius:20px;
+  }
 
   .stat-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
   .stat-card{background:var(--pine);color:#fff;border-radius:12px;padding:14px 12px;}
@@ -1013,6 +1024,10 @@ function viewAttendance(){
 
   const sections = orderedCats.map(cat=>{
     const units = Object.keys(catGroups[cat]).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+    const catCourseIds = Object.values(catGroups[cat]).flat().map(c=>c.id);
+    const catSessions = sessions.filter(s=>catCourseIds.includes(s.courseId));
+    const catCount = catSessions.length;
+    const catTotal = catSessions.filter(s=>s.attended).reduce((sum,s)=>sum+s.cost,0);
     const unitBlocks = units.map(unit=>{
       const list = [...catGroups[cat][unit]].sort((a,b)=>
         earliestDayIndex(a)-earliestDayIndex(b) || earliestTimeStr(a).localeCompare(earliestTimeStr(b))
@@ -1026,7 +1041,7 @@ function viewAttendance(){
     }).join('');
     return `
       <div class="category-section">
-        <h3 class="category-heading">${escapeHtml(cat)}</h3>
+        <h3 class="category-heading">${escapeHtml(cat)}<span class="category-stats">已上 ${catCount} 次・累計 ${money(catTotal)}</span></h3>
         ${unitBlocks}
       </div>`;
   }).join('');
@@ -1040,15 +1055,16 @@ function viewAttendance(){
 function renderBookCard(c){
   const list = sessions.filter(s=>s.courseId===c.id);
   const totalCost = list.filter(s=>s.attended).reduce((sum,s)=>sum+s.cost,0);
-  const color = subjectColor(c.subject);
+  const isEnded = courseStatus(c) === 'ended';
+  const color = isEnded ? '#9a9a8c' : subjectColor(c.subject);
   const firstDate = list.length ? list.reduce((min,s)=> s.date<min?s.date:min, list[0].date) : null;
   const rangeLabel = (c.startDate || c.endDate)
     ? `${c.startDate?formatFullDate(c.startDate):'不限'}－${c.endDate?formatFullDate(c.endDate):'不限'}`
     : '長期上課';
   return `
-    <button class="book-card" style="background:${color}" onclick="openCourseHistoryModal('${c.id}')">
+    <button class="book-card${isEnded?' book-card-ended':''}" style="background:${color}" onclick="openCourseHistoryModal('${c.id}')">
       ${firstDate ? `<span class="book-date">${formatShortDate(firstDate)}</span>` : ''}
-      <div class="book-icon">📖</div>
+      <div class="book-icon">${isEnded?'📕':'📖'}</div>
       <div class="book-title">${escapeHtml(c.subject)}</div>
       ${c.unit ? `<div class="book-unit">${escapeHtml(c.unit)}</div>` : ''}
       <div class="book-range">${rangeLabel}</div>
@@ -1482,6 +1498,37 @@ async function waitForSupabaseLib(maxWaitMs){
   return !!(window.supabase && typeof window.supabase.createClient==='function');
 }
 
+function loadDemoData(){
+  const past = (n)=> dateStr(addDays(new Date(), -n));
+  courses = [
+    {id:uid(), subjectCategory:'物理治療', subjectDetail:'', subject:'物理治療', unit:'正德醫院', schedule:[{day:1,time:'17:30'}], type:'group', payType:'nhi', cost:50, startDate:'2026-08-01', endDate:'2026-12-31'},
+    {id:uid(), subjectCategory:'職能治療', subjectDetail:'', subject:'職能治療', unit:'正德醫院', schedule:[{day:2,time:'17:30'},{day:5,time:'16:00'}], type:'group', payType:'nhi', cost:800, startDate:null, endDate:null},
+    {id:uid(), subjectCategory:'語言治療', subjectDetail:'', subject:'語言治療', unit:'心語職能治療所', schedule:[{day:3,time:'18:30'}], type:'individual', payType:'self', cost:1200, startDate:null, endDate:null},
+    {id:uid(), subjectCategory:'心理治療', subjectDetail:'', subject:'心理治療', unit:'正德醫院', schedule:[{day:4,time:'17:00'}], type:'group', payType:'nhi', cost:0, startDate:null, endDate:null},
+    {id:uid(), subjectCategory:'評估', subjectDetail:'感覺統合評估', subject:'評估：感覺統合評估', unit:'國泰醫院', schedule:[{day:6,time:'10:00'}], type:'individual', payType:'self', cost:2000, startDate:'2025-01-01', endDate:'2025-06-30'}
+  ];
+  sessions = [];
+  function addSess(course, daysAgo, attended, note, costOverride){
+    sessions.push({
+      id: uid(), courseId: course.id, date: past(daysAgo),
+      time: course.schedule[0].time, type: course.type, payType: course.payType,
+      attended, cost: costOverride!==undefined?costOverride:course.cost, note: note||''
+    });
+  }
+  addSess(courses[0], 7, true, '本次表現穩定，肌力進步');
+  addSess(courses[0], 0, true, '');
+  addSess(courses[1], 5, true, '專注力提升');
+  addSess(courses[1], 12, false, '感冒請假');
+  addSess(courses[2], 3, true, '口語表達進步很多');
+
+  lastLoadError = null;
+  document.getElementById('foldernav').innerHTML = '';
+  document.getElementById('bottomnav').innerHTML = '';
+  renderNav();
+  renderMain();
+  showToast('已載入範例資料（僅供預覽，不會存到資料庫）');
+}
+
 async function init(){
   if(!SUPABASE_CONFIGURED){
     document.getElementById('main').innerHTML = `
@@ -1496,6 +1543,9 @@ const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';</pre>
         <p style="font-size:14.5px;line-height:1.7;color:#4a4a40;">
           換成你自己 Supabase 專案的 Project URL 與 anon public key（在 Supabase 後台 Settings → API 可以找到），存檔後重新整理即可。
         </p>
+        <div class="modal-actions" style="margin-top:14px;">
+          <button class="btn btn-ghost" onclick="loadDemoData()" style="flex:1;">載入範例資料試用畫面</button>
+        </div>
       </div>`;
     document.getElementById('foldernav').innerHTML = '';
     document.getElementById('bottomnav').innerHTML = '';
@@ -1517,6 +1567,9 @@ const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';</pre>
           資料庫連線函式庫載入失敗，可能是網路不穩定，或瀏覽器的隱私/廣告封鎖功能擋住了外部程式庫。<br>
           請檢查網路連線，或暫時關閉封鎖功能後，重新整理這個頁面再試一次。
         </p>
+        <div class="modal-actions" style="margin-top:14px;">
+          <button class="btn btn-ghost" onclick="loadDemoData()" style="flex:1;">載入範例資料試用畫面</button>
+        </div>
       </div>`;
     document.getElementById('foldernav').innerHTML = '';
     document.getElementById('bottomnav').innerHTML = '';
@@ -1534,7 +1587,10 @@ const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';</pre>
       <div class="section-title"><h2 style="color:var(--coral);">⚠️ 資料讀取失敗</h2></div>
       <p style="font-size:13.5px;line-height:1.7;color:#4a4a40;">目前顯示的可能不是完整資料。錯誤原因：</p>
       <pre style="background:var(--paper);padding:10px;border-radius:8px;font-size:12px;overflow-x:auto;white-space:pre-wrap;">${escapeHtml(lastLoadError)}</pre>
-      <p style="font-size:12.5px;color:#8a8a7d;">常見原因：Supabase 裡還沒建立 kv_store 資料表、或資料表的 Row Level Security 政策沒有設定好。</p>`;
+      <p style="font-size:12.5px;color:#8a8a7d;">常見原因：Supabase 裡還沒建立 kv_store 資料表、或資料表的 Row Level Security 政策沒有設定好。</p>
+      <div class="modal-actions" style="margin-top:10px;">
+        <button class="btn btn-ghost" onclick="loadDemoData()" style="flex:1;">載入範例資料試用畫面</button>
+      </div>`;
     main.insertBefore(banner, main.firstChild);
   }
 }
