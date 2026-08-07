@@ -242,6 +242,11 @@
   .book-card:active{transform:scale(0.94) rotate(-1deg);}
   .book-range-big{font-size:15px;font-weight:700;line-height:1.55;font-family:'JetBrains Mono',monospace;}
   .book-count-big{font-size:16px;font-weight:800;}
+  .book-type{
+    position:absolute;top:10px;left:10px;
+    font-size:9.5px;font-weight:700;color:#fff;
+    background:rgba(0,0,0,0.24);padding:2px 8px;border-radius:20px;
+  }
   .book-icon{font-size:22px;margin-bottom:4px;}
   .book-title{font-weight:800;font-size:15px;line-height:1.3;margin-bottom:4px;}
   .book-sub{font-size:11.5px;opacity:0.92;font-family:'JetBrains Mono',monospace;}
@@ -660,7 +665,15 @@ function renderMain(){
 
 /* ================= COURSES TAB ================= */
 function viewCourses(){
-  const sorted = [...courses].sort((a,b)=> earliestDayIndex(a)-earliestDayIndex(b) || earliestTimeStr(a).localeCompare(earliestTimeStr(b)));
+  function statusOrder(c){
+    const s = courseStatus(c);
+    return s==='upcoming' ? 0 : s==='active' ? 1 : 2;
+  }
+  const sorted = [...courses].sort((a,b)=>
+    statusOrder(a)-statusOrder(b) ||
+    earliestDayIndex(a)-earliestDayIndex(b) ||
+    earliestTimeStr(a).localeCompare(earliestTimeStr(b))
+  );
   const rows = sorted.map(c=>{
     const status = courseStatus(c);
     const statusBadge = status==='ended' ? '<span class="badge badge-ended">已結束</span>'
@@ -1056,6 +1069,7 @@ function renderBookCard(c){
     : '長期上課';
   return `
     <button class="book-card${isEnded?' book-card-ended':''}" style="background:${color}" onclick="openCourseHistoryModal('${c.id}')">
+      <span class="book-type">${typeLabel(c.type)}</span>
       <div class="book-range-big">${rangeLabel}</div>
       <div class="book-count-big">已上${list.length}次</div>
     </button>`;
