@@ -244,6 +244,12 @@
   .book-title{font-weight:800;font-size:15px;line-height:1.3;margin-bottom:4px;}
   .book-sub{font-size:11.5px;opacity:0.92;font-family:'JetBrains Mono',monospace;}
   .book-unit{font-size:11.5px;opacity:0.9;font-family:'Noto Sans TC',sans-serif;}
+  .book-date{
+    position:absolute;top:10px;right:10px;
+    font-size:10.5px;font-weight:700;color:#fff;
+    background:rgba(0,0,0,0.24);padding:2px 8px;border-radius:20px;
+    font-family:'JetBrains Mono',monospace;
+  }
   .book-card-orphan{background:#9a9a8c;}
 
   .stat-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
@@ -966,7 +972,16 @@ function viewAttendance(){
       </div>`;
   }
 
-  const sortedCourses = [...courses].sort((a,b)=> earliestDayIndex(a)-earliestDayIndex(b) || earliestTimeStr(a).localeCompare(earliestTimeStr(b)));
+  function categoryIndex(c){
+    const idx = SUBJECT_CATEGORIES.indexOf(c.subjectCategory);
+    return idx === -1 ? SUBJECT_CATEGORIES.length : idx;
+  }
+  const sortedCourses = [...courses].sort((a,b)=>
+    categoryIndex(a)-categoryIndex(b) ||
+    (a.unit||'').localeCompare(b.unit||'', 'zh-Hant') ||
+    earliestDayIndex(a)-earliestDayIndex(b) ||
+    earliestTimeStr(a).localeCompare(earliestTimeStr(b))
+  );
   const books = sortedCourses.map(c=>renderBookCard(c)).join('');
   const orphan = sessions.filter(s=>!courses.find(c=>c.id===s.courseId));
   const orphanBook = orphan.length ? renderOrphanBookCard(orphan) : '';
@@ -978,8 +993,10 @@ function renderBookCard(c){
   const list = sessions.filter(s=>s.courseId===c.id);
   const totalCost = list.filter(s=>s.attended).reduce((sum,s)=>sum+s.cost,0);
   const color = subjectColor(c.subject);
+  const firstDate = list.length ? list.reduce((min,s)=> s.date<min?s.date:min, list[0].date) : null;
   return `
     <button class="book-card" style="background:${color}" onclick="openCourseHistoryModal('${c.id}')">
+      ${firstDate ? `<span class="book-date">${formatShortDate(firstDate)}</span>` : ''}
       <div class="book-icon">📖</div>
       <div class="book-title">${escapeHtml(c.subject)}</div>
       ${c.unit ? `<div class="book-unit">${escapeHtml(c.unit)}</div>` : ''}
@@ -1213,12 +1230,18 @@ function viewSummary(){
     categoryTotals[cat].count += 1;
   });
   const categoryEntries = Object.entries(categoryTotals).sort((a,b)=>b[1].total-a[1].total);
+  const totalCount = attended.length;
   const categoryRows = categoryEntries.map(([cat,v])=>`
     <tr>
       <td>${escapeHtml(cat)}</td>
       <td>${v.count} 次</td>
       <td class="num">${money(v.total)}</td>
-    </tr>`).join('');
+    </tr>`).join('') + `
+    <tr class="total">
+      <td>合計</td>
+      <td>${totalCount} 次</td>
+      <td class="num">${money(grandTotal)}</td>
+    </tr>`;
 
   // 3. 依月份加總（YYYY-MM）
   const monthTotals = {};
