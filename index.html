@@ -198,6 +198,7 @@
   }
   .class-chip button.chip-yes{background:rgba(255,255,255,0.65);color:#1f5c46;font-weight:800;}
   .class-chip button.chip-no{background:rgba(0,0,0,0.32);color:#fff;font-weight:800;}
+  .class-chip button.chip-leave{background:rgba(255,255,255,0.55);color:#5a4a1f;font-weight:800;}
 
   /* ---- attendance / learning history ---- */
   .course-history-head{
@@ -220,6 +221,7 @@
   .status-pill{font-size:11.5px;padding:3px 9px;border-radius:20px;font-weight:700;}
   .status-yes{background:#e4f2ec;color:var(--teal);}
   .status-no{background:#fbe9e5;color:var(--coral);}
+  .status-leave{background:#FFF3D6;color:#B8860B;}
   .att-note{font-size:13px;color:#555;margin-top:6px;white-space:pre-wrap;}
   .att-cost{margin-left:auto;font-weight:700;color:var(--pine-dark);}
 
@@ -344,6 +346,15 @@
     font-size:14px;font-weight:700;background:#fdfcf9;color:#4a4a40;transition:background .12s,color .12s,border-color .12s;
   }
   .paytype-toggle input:checked + span{background:var(--mustard);color:#3a2a0d;border-color:var(--mustard);}
+
+  .status-toggle span{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:10px 16px;border-radius:10px;border:1.5px solid var(--line);
+    font-size:13.5px;font-weight:700;background:#fdfcf9;color:#4a4a40;transition:background .12s,color .12s,border-color .12s;
+  }
+  .status-toggle-yes input:checked + span{background:var(--teal);color:#fff;border-color:var(--teal);}
+  .status-toggle-no input:checked + span{background:var(--coral);color:#fff;border-color:var(--coral);}
+  .status-toggle-leave input:checked + span{background:#B8860B;color:#fff;border-color:#B8860B;}
 
   .day-time-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
   .day-time-row{
@@ -952,9 +963,14 @@ function renderWeekCard(weekStart, isCurrent){
       .sort((a,b)=>a.time.localeCompare(b.time));
     const chips = items.map(({course:c, time})=>{
       const existing = sessions.find(s=>s.courseId===c.id && s.date===ds);
-      const action = existing
-        ? `<button class="chip-status ${existing.attended?'chip-yes':'chip-no'}" onclick="openSessionModal('${existing.id}')">${existing.attended?'✓ 已出席':'✕ 未出席'}</button>`
-        : `<button onclick="quickCheckIn('${c.id}','${ds}')">＋ 打卡出席</button>`;
+      let action;
+      if(existing){
+        const cls = existing.leave ? 'chip-leave' : (existing.attended ? 'chip-yes' : 'chip-no');
+        const label = existing.leave ? '🏖️ 請假' : (existing.attended ? '✓ 已出席' : '✕ 未出席');
+        action = `<button class="chip-status ${cls}" onclick="openSessionModal('${existing.id}')">${label}</button>`;
+      } else {
+        action = `<button onclick="quickCheckIn('${c.id}','${ds}')">＋ 打卡出席</button>`;
+      }
       return `
       <div class="class-chip" style="background:${subjectColor(c.subject)}">
         <div class="t">${time} ${escapeHtml(c.subject)}</div>
@@ -1137,15 +1153,18 @@ function openOrphanHistoryModal(){
 function renderHistoryItem(s, color, fallbackType, fallbackPayType){
   const typeText = typeLabel(s.type || fallbackType || 'group');
   const payText = payTypeLabel(s.payType || fallbackPayType || 'self');
+  const statusText = s.leave ? '請假' : (s.attended ? '已出席' : '未出席');
+  const statusClass = s.leave ? 'status-leave' : (s.attended ? 'status-yes' : 'status-no');
   return `
     <div class="timeline-item">
       <div class="timeline-dot" style="background:${color}"></div>
       <div class="timeline-content">
         <div class="att-top">
           <div class="att-date">${s.date}</div>
-          <span class="status-pill ${s.attended?'status-yes':'status-no'}">${s.attended?'已出席':'未出席'}</span>
+          <span class="status-pill ${statusClass}">${statusText}</span>
           <span class="badge type-badge">${typeText}・${payText}</span>
         </div>
+        ${s.leave && s.leaveReason ? `<div class="att-note">🏖️ 請假原因：${escapeHtml(s.leaveReason)}</div>` : ''}
         ${s.note ? `<div class="att-note">📝 ${escapeHtml(s.note)}</div>` : ''}
         <div class="row-actions" style="margin-top:8px;">
           <button class="btn btn-ghost btn-sm" onclick="openSessionModal('${s.id}')">編輯</button>
@@ -1167,6 +1186,8 @@ function openSessionModal(id, presetCourseId, presetDate){
   const defaultType = s ? (s.type || (selectedCourse?selectedCourse.type:'group')) : (selectedCourse ? selectedCourse.type : 'group');
   const defaultPayType = s ? (s.payType || (selectedCourse?selectedCourse.payType:'self')) : (selectedCourse ? (selectedCourse.payType||'self') : 'self');
 
+  const defaultStatus = s ? (s.leave ? 'leave' : (s.attended ? 'yes' : 'no')) : 'yes';
+
   const html = `
     <h3>${s?'編輯學習紀錄':'新增打卡紀錄'}</h3>
     <form onsubmit="submitSessionForm(event); return false;">
@@ -1183,9 +1204,25 @@ function openSessionModal(id, presetCourseId, presetDate){
           <option value="individual" ${defaultType==='individual'?'selected':''}>個別課程</option>
         </select>
       </div>
-      <div class="check-row">
-        <input type="checkbox" id="attendedChk" name="attended" ${s?(s.attended?'checked':''):'checked'}>
-        <label for="attendedChk" style="margin:0;">當天已確實去早療</label>
+      <div class="field"><label>出席狀態</label>
+        <div class="chip-toggle-group">
+          <label class="chip-toggle status-toggle status-toggle-yes">
+            <input type="radio" class="toggle-input" name="attendStatus" value="yes" onchange="onAttendStatusChange(this)" ${defaultStatus==='yes'?'checked':''}>
+            <span>已出席</span>
+          </label>
+          <label class="chip-toggle status-toggle status-toggle-no">
+            <input type="radio" class="toggle-input" name="attendStatus" value="no" onchange="onAttendStatusChange(this)" ${defaultStatus==='no'?'checked':''}>
+            <span>未出席</span>
+          </label>
+          <label class="chip-toggle status-toggle status-toggle-leave">
+            <input type="radio" class="toggle-input" name="attendStatus" value="leave" onchange="onAttendStatusChange(this)" ${defaultStatus==='leave'?'checked':''}>
+            <span>請假</span>
+          </label>
+        </div>
+      </div>
+      <div class="field" id="leaveReasonWrap" style="display:${defaultStatus==='leave'?'block':'none'};">
+        <label>請假原因（選填）</label>
+        <input name="leaveReason" value="${s&&s.leaveReason?escapeAttr(s.leaveReason):''}" placeholder="例如：感冒請假、臨時有事">
       </div>
       <div class="field"><label>費用類別</label>
         <div class="chip-toggle-group">
@@ -1231,18 +1268,26 @@ function onSessionDateChange(dateInput){
   }
 }
 
+function onAttendStatusChange(radio){
+  const wrap = document.getElementById('leaveReasonWrap');
+  if(wrap){ wrap.style.display = radio.value==='leave' ? 'block' : 'none'; }
+}
+
 async function submitSessionForm(e, btnEl){
   e.preventDefault();
   if(btnEl){ btnEl.disabled = true; btnEl.textContent = '儲存中…'; }
   try{
     const f = e.target;
+    const attendStatus = f.attendStatus.value;
     const data = {
       courseId: f.courseId.value,
       date: f.date.value,
       time: f.time.value,
       type: f.type.value,
       payType: f.payType.value,
-      attended: f.attended.checked,
+      attended: attendStatus === 'yes',
+      leave: attendStatus === 'leave',
+      leaveReason: attendStatus === 'leave' ? f.leaveReason.value.trim() : '',
       cost: Number(f.cost.value),
       note: f.note.value.trim()
     };
@@ -1513,18 +1558,24 @@ function loadDemoData(){
     {id:uid(), subjectCategory:'評估', subjectDetail:'感覺統合評估', subject:'評估：感覺統合評估', unit:'國泰醫院', schedule:[{day:6,time:'10:00'}], type:'individual', payType:'self', cost:2000, startDate:'2025-01-01', endDate:'2025-06-30'}
   ];
   sessions = [];
-  function addSess(course, daysAgo, attended, note, costOverride){
+  function addSess(course, daysAgo, status, note, costOverride, leaveReason){
     sessions.push({
       id: uid(), courseId: course.id, date: past(daysAgo),
       time: course.schedule[0].time, type: course.type, payType: course.payType,
-      attended, cost: costOverride!==undefined?costOverride:course.cost, note: note||''
+      attended: status==='yes', leave: status==='leave', leaveReason: leaveReason||'',
+      cost: status==='yes' ? (costOverride!==undefined?costOverride:course.cost) : 0,
+      note: note||''
     });
   }
-  addSess(courses[0], 7, true, '本次表現穩定，肌力進步');
-  addSess(courses[0], 0, true, '');
-  addSess(courses[1], 5, true, '專注力提升');
-  addSess(courses[1], 12, false, '感冒請假');
-  addSess(courses[2], 3, true, '口語表達進步很多');
+  addSess(courses[0], 14, 'yes', '本次表現穩定，肌力進步');
+  addSess(courses[0], 7, 'leave', '', undefined, '感冒發燒，臨時請假');
+  addSess(courses[0], 0, 'yes', '');
+  addSess(courses[1], 12, 'yes', '專注力提升');
+  addSess(courses[1], 5, 'no', '未事先請假，臨時缺席');
+  addSess(courses[2], 10, 'yes', '口語表達進步很多');
+  addSess(courses[2], 3, 'leave', '', undefined, '安排家庭旅遊');
+  addSess(courses[3], 6, 'yes', '情緒穩定度提升');
+  addSess(courses[4], 20, 'yes', '前庭刺激反應良好，建議持續加強');
 
   lastLoadError = null;
   document.getElementById('foldernav').innerHTML = '';
