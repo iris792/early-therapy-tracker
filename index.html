@@ -1052,7 +1052,7 @@ function viewAttendance(){
     const units = Object.keys(catGroups[cat]).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
     const catCourseIds = Object.values(catGroups[cat]).flat().map(c=>c.id);
     const catSessions = sessions.filter(s=>catCourseIds.includes(s.courseId));
-    const catCount = catSessions.length;
+    const catCount = catSessions.filter(s=>!s.leave).length;
     const catTotal = catSessions.filter(s=>s.attended).reduce((sum,s)=>sum+s.cost,0);
     const unitBlocks = units.map(unit=>{
       const list = [...catGroups[cat][unit]].sort((a,b)=>
@@ -1081,6 +1081,7 @@ function viewAttendance(){
 
 function renderBookCard(c){
   const list = sessions.filter(s=>s.courseId===c.id);
+  const attendCount = list.filter(s=>!s.leave).length;
   const isEnded = courseStatus(c) === 'ended';
   const color = isEnded ? '#9a9a8c' : subjectColor(c.subject);
   const rangeLabel = (c.startDate || c.endDate)
@@ -1090,7 +1091,7 @@ function renderBookCard(c){
     <button class="book-card${isEnded?' book-card-ended':''}" style="background:${color}" onclick="openCourseHistoryModal('${c.id}')">
       <span class="book-type book-type-${c.type}">${typeLabel(c.type)}</span>
       <div class="book-range-big">${rangeLabel}</div>
-      <div class="book-count-big">已上${list.length}次</div>
+      <div class="book-count-big">已上${attendCount}次</div>
     </button>`;
 }
 
@@ -1113,6 +1114,7 @@ function openCourseHistoryModal(courseId){
 function renderHistoryModalContent(c){
   const list = sessions.filter(s=>s.courseId===c.id).sort((a,b)=>b.date.localeCompare(a.date));
   const color = subjectColor(c.subject);
+  const attendCount = list.filter(s=>!s.leave).length;
   const totalCost = list.filter(s=>s.attended).reduce((sum,s)=>sum+s.cost,0);
   const items = list.length
     ? list.map(s=>renderHistoryItem(s,color,c.type,c.payType)).join('')
@@ -1122,7 +1124,7 @@ function renderHistoryModalContent(c){
       <div class="dot" style="background:${color}"></div>
       <div class="course-main">
         <div class="subj">${escapeHtml(c.subject)}</div>
-        <div class="meta">${scheduleLabel(c)}${c.unit?`・${escapeHtml(c.unit)}`:''}${list.length?`・已上 ${list.length} 次・累計 ${money(totalCost)}`:''}</div>
+        <div class="meta">${scheduleLabel(c)}${c.unit?`・${escapeHtml(c.unit)}`:''}${list.length?`・已上 ${attendCount} 次・累計 ${money(totalCost)}`:''}</div>
       </div>
     </div>
     <div class="modal-actions" style="margin:14px 0 4px;">
